@@ -1,1 +1,4 @@
+*.swp
 *DS_Store*
+dump.rdb
+*.aof
