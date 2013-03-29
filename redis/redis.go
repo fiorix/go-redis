@@ -840,7 +840,7 @@ func (c *Client) Echo(message string) (string, error) {
 // Eval is not fully supported on sharded connections.
 func (c *Client) Eval(script string, numkeys int, keys []string, args []string) (interface{}, error) {
 	a := []string{
-		"eval",
+		"EVAL",
 		script, // escape?
 		fmt.Sprintf("%d", numkeys),
 		strings.Join(keys, " "),
@@ -857,7 +857,7 @@ func (c *Client) Eval(script string, numkeys int, keys []string, args []string) 
 // EvalSha is not fully supported on sharded connections.
 func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string) (interface{}, error) {
 	a := []string{
-		"evalsha",
+		"EVALSHA",
 		sha1,
 		fmt.Sprintf("%d", numkeys),
 		strings.Join(keys, " "),
@@ -875,7 +875,44 @@ func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string)
 
 // http://redis.io/commands/exists
 func (c *Client) Exists(key string) (bool, error) {
-	n, err := c.execWithKey(true, "exists", key)
+	n, err := c.execWithKey(true, "EXISTS", key)
+	if err != nil {
+		return false, err
+	}
+	switch n.(type) {
+	case int:
+		if n.(int) == 1 {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+	return false, ErrServerError
+}
+
+// http://redis.io/commands/expire
+// Expire returns true if the timeout was set, or false if key does not exist
+// or the timeout could not be set.
+func (c *Client) Expire(key string, seconds int) (bool, error) {
+	n, err := c.execWithKey(true, "EXPIRE", key, fmt.Sprintf("%d", seconds))
+	if err != nil {
+		return false, err
+	}
+	switch n.(type) {
+	case int:
+		if n.(int) == 1 {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+	return false, ErrServerError
+}
+
+// http://redis.io/commands/expireat
+// ExpireAt returns like Expire.
+func (c *Client) ExpireAt(key string, timestamp int) (bool, error) {
+	n, err := c.execWithKey(true, "EXPIREAT", key, fmt.Sprintf("%d", timestamp))
 	if err != nil {
 		return false, err
 	}
@@ -892,14 +929,32 @@ func (c *Client) Exists(key string) (bool, error) {
 
 // WIP
 
-// http://redis.io/commands/script-load
-func (c *Client) ScriptLoad(script string) (string, error) {
-	addr, err := c.selector.PickServer("")
+// Get gets the item for the given key. ErrCacheMiss is returned for a
+// memcache cache miss. The key must be at most 250 bytes in length.
+func (c *Client) Get(key string) (string, error) {
+	value, err := c.execWithKey(true, "get", key)
 	if err != nil {
 		return "", err
 	}
-	a := []string{"script", "load", script}
-	v, err := c.execWithAddr(true, addr, a...)
+	return value.(string), err
+}
+
+// http://redis.io/commands/rpush
+func (c *Client) RPush(key string, values ...string) (int, error) {
+	n, err := c.execWithKey(true, "rpush", key, values...)
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// http://redis.io/commands/script-load
+func (c *Client) ScriptLoad(script string) (string, error) {
+	v, err := c.execOnFirst(true, "script", "load", script)
 	if err != nil {
 		return "", err
 	}
@@ -910,14 +965,23 @@ func (c *Client) ScriptLoad(script string) (string, error) {
 	return "", ErrServerError
 }
 
-// Get gets the item for the given key. ErrCacheMiss is returned for a
-// memcache cache miss. The key must be at most 250 bytes in length.
-func (c *Client) Get(key string) (string, error) {
-	value, err := c.execWithKey(true, "get", key)
+// Set writes the given item, unconditionally.
+func (c *Client) Set(key, value string) (err error) {
+	_, err = c.execWithKey(true, "set", key, value)
+	return
+}
+
+// http://redis.io/commands/ttl
+func (c *Client) TTL(key string) (int, error) {
+	n, err := c.execWithKey(true, "TTL", key)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	return value.(string), err
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
 }
 
 // GetMulti is a batch version of Get. The returned map from keys to
@@ -962,19 +1026,6 @@ func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
 	return m, err
 }
 */
-
-// Set writes the given item, unconditionally.
-func (c *Client) Set(key, value string) (err error) {
-	_, err = c.execWithKey(true, "set", key, value)
-	return
-}
-
-// Add writes the given item, if no value already exists for its
-// key. ErrNotStored is returned if that condition is not met.
-func (c *Client) Add(key, value string) (err error) {
-	_, err = c.execWithKey(true, "add", key, value)
-	return
-}
 
 // Increment atomically increments key by delta. The return value is
 // the new value after being incremented or an error. If the value
@@ -1021,18 +1072,3 @@ func (c *Client) incrDecr(verb, key string, delta uint64) (uint64, error) {
 	return val, err
 }
 */
-
-// RPush appends values at the tail of the list stored at key.
-// RPush returns the length of the list after the push operation.
-// http://redis.io/commands/rpush
-func (c *Client) RPush(key string, values ...string) (int, error) {
-	n, err := c.execWithKey(true, "rpush", key, values...)
-	if err != nil {
-		return 0, err
-	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
-}

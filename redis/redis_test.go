@@ -361,7 +361,7 @@ func TestEcho(t *testing.T) {
 }
 
 // TestEval tests server side Lua script.
-// TODO: fix
+// TODO: fix the response.
 func TestEval(t *testing.T) {
 	_, err := rc.Eval(
 		"return {1,{2,3,'foo'},KEYS[1],KEYS[2],ARGV[1],ARGV[2]}",
@@ -378,7 +378,7 @@ func TestEval(t *testing.T) {
 
 // TestEvalSha tests server side Lua script.
 // TestEvalSha preloads the script with ScriptLoad.
-// TODO: fix
+// TODO: fix the response.
 func TestEvalSha(t *testing.T) {
 	sha1, err := rc.ScriptLoad("return {1,{2,3,'foo'},KEYS[1],KEYS[2],ARGV[1],ARGV[2]}")
 	if err != nil {
@@ -423,6 +423,66 @@ func TestExists(t *testing.T) {
 		return
 	}
 	rc.Del("key1", "key2")
+}
+
+// TestExpire reproduces the example from http://redis.io/commands/expire.
+// TestExpire also tests the TTL command.
+func TestExpire(t *testing.T) {
+	defer func() { rc.Del("mykey") }()
+	rc.Set("mykey", "hello")
+	ok, err := rc.Expire("mykey", 10)
+	if err != nil {
+		t.Error(err)
+		return
+	} else if !ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
+	ttl, err := rc.TTL("mykey")
+	if err != nil {
+		t.Error(err)
+		return
+	} else if ttl != 10 {
+		t.Error(errUnexpected(ttl))
+		return
+	}
+	rc.Set("mykey", "Hello World")
+	ttl, err = rc.TTL("mykey")
+	if err != nil {
+		t.Error(err)
+	} else if ttl != -1 {
+		t.Error(errUnexpected(ttl))
+	}
+}
+
+// TestExpireAt reproduces the example from http://redis.io/commands/expire.
+func TestExpireAt(t *testing.T) {
+	defer func() { rc.Del("mykey") }()
+	rc.Set("mykey", "hello")
+	ok, err := rc.Exists("mykey")
+	if err != nil {
+		t.Error(err)
+		return
+	} else if !ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
+	ok, err = rc.ExpireAt("mykey", 1293840000)
+	if err != nil {
+		t.Error(err)
+		return
+	} else if !ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
+	ok, err = rc.Exists("mykey")
+	if err != nil {
+		t.Error(err)
+		return
+	} else if ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
 }
 
 // TestSetAndGet sets a key, fetches it, and compare the results.
