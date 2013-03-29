@@ -267,7 +267,7 @@ func (c *Client) execWithKey(urp bool, cmd, key string, a ...string) (v interfac
 	return c.execWithAddr(urp, addr, append(x, a...)...)
 }
 
-// executeWithKeys calls executeWithKey for each key, returns an array
+// executeWithKeys calls executeWithKey for each key, returns an array.
 func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) (v interface{}, err error) {
 	var r []interface{}
 	for _, k := range keys {
@@ -282,7 +282,7 @@ func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) 
 	return
 }
 
-// executeWithAddr executes a command in a specific redis server
+// executeWithAddr executes a command in a specific redis server.
 func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface{}, err error) {
 	cn, err := c.getConn(addr)
 	if err != nil {
@@ -297,7 +297,7 @@ func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface
 // URP is optional to support (old) commands list CLIENT LIST, CLIENT KILL.
 // Redis wire protocol: http://redis.io/topics/protocol
 func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
-	//fmt.Printf("\nSending: %#v\n", a)
+	fmt.Printf("\nSending: %#v\n", a)
 	if urp {
 		// Optional: Unified Request Protocol
 		_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
@@ -338,7 +338,6 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 	}
 	reply := byte(line[0])
 	lineLen := len(line)
-	crlf := []byte("\r\n")
 	if len(line) > 2 && bytes.Equal(line[lineLen-2:], crlf) {
 		line = line[1 : lineLen-2]
 	}
@@ -745,7 +744,178 @@ func (c *Client) ConfigResetStat() error {
 	return ErrServerError
 }
 
+// http://redis.io/commands/dbsize
+// DBSize does not work on sharded connections.
+func (c *Client) DBSize() (int, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return 0, err
+	}
+	size, err := c.execWithAddr(false, addr, "dbsize")
+	if err != nil {
+		return 0, err
+	}
+	switch size.(type) {
+	case int:
+		return size.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// http://redis.io/commands/debug-segfault
+// DebugSegfault does not work on sharded connections.
+func (c *Client) DebugSegfault() error {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return err
+	}
+	ok, err := c.execWithAddr(false, addr, "debug segfault")
+	if err != nil {
+		return err
+	}
+	switch ok.(type) {
+	case string:
+		return nil
+	}
+	return ErrServerError
+}
+
+// http://redis.io/commands/decr
+func (c *Client) Decr(key string) (int, error) {
+	n, err := c.execWithKey(true, "decr", key)
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// http://redis.io/commands/decrby
+func (c *Client) DecrBy(key string, decrement int) (int, error) {
+	n, err := c.execWithKey(true, "decrby", key,
+		fmt.Sprintf("%d", decrement))
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// http://redis.io/commands/del
+// TODO: Use a single connection when possible (not sharded)
+func (c *Client) Del(keys ...string) (int, error) {
+	v, err := c.execWithKeys(true, "del", keys)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, n := range v.([]interface{}) {
+		switch n.(type) {
+		case int:
+			deleted += n.(int)
+		default:
+			return 0, ErrServerError
+		}
+	}
+	return deleted, nil
+}
+
+// http://redis.io/commands/discard
+// TODO: Discard
+
+// http://redis.io/commands/dump
+func (c *Client) Dump(key string) (string, error) {
+	v, err := c.execWithKey(true, "dump", key)
+	if err != nil {
+		return "", err
+	}
+	switch v.(type) {
+	case string:
+		return v.(string), nil
+	}
+	return "", ErrServerError
+}
+
+// http://redis.io/commands/echo
+func (c *Client) Echo(message string) (string, error) {
+	v, err := c.execWithKey(true, "echo", message)
+	if err != nil {
+		return "", err
+	}
+	switch v.(type) {
+	case string:
+		return v.(string), nil
+	}
+	return "", ErrServerError
+}
+
+// http://redis.io/commands/eval
+// Eval does not work on sharded connections.
+func (c *Client) Eval(script string, numkeys int, keys []string, args []string) (interface{}, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return nil, err
+	}
+	a := []string{
+		"eval",
+		script, // escape?
+		fmt.Sprintf("%d", numkeys),
+		strings.Join(keys, " "),
+		strings.Join(args, " "),
+	}
+	resp, err := c.execWithAddr(true, addr, a...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// http://redis.io/commands/evalsha
+// EvalSha does not work on sharded connections.
+func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string) (interface{}, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return nil, err
+	}
+	a := []string{
+		"evalsha",
+		sha1,
+		fmt.Sprintf("%d", numkeys),
+		strings.Join(keys, " "),
+		strings.Join(args, " "),
+	}
+	resp, err := c.execWithAddr(true, addr, a...)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // WIP
+
+// http://redis.io/commands/script-load
+func (c *Client) ScriptLoad(script string) (string, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return "", err
+	}
+	a := []string{"script", "load", script}
+	v, err := c.execWithAddr(true, addr, a...)
+	if err != nil {
+		return "", err
+	}
+	switch v.(type) {
+	case string:
+		return v.(string), nil
+	}
+	return "", ErrServerError
+}
 
 // Get gets the item for the given key. ErrCacheMiss is returned for a
 // memcache cache miss. The key must be at most 250 bytes in length.
@@ -811,20 +981,6 @@ func (c *Client) Set(key, value string) (err error) {
 func (c *Client) Add(key, value string) (err error) {
 	_, err = c.execWithKey(true, "add", key, value)
 	return
-}
-
-// Delete deletes the item with the provided key. The error ErrCacheMiss is
-// returned if the item didn't already exist in the cache.
-func (c *Client) Delete(keys ...string) (int, error) {
-	v, err := c.execWithKeys(true, "del", keys)
-	if err != nil {
-		return 0, err
-	}
-	deleted := 0
-	for _, n := range v.([]interface{}) {
-		deleted += n.(int)
-	}
-	return deleted, nil
 }
 
 // Increment atomically increments key by delta. The return value is
