@@ -40,7 +40,7 @@ func errUnexpected(msg interface{}) string {
 // Tests
 
 // TestAppend appends " World" to "Hello" and expects the lenght to be 11.
-func _TestAppend(t *testing.T) {
+func TestAppend(t *testing.T) {
 	defer func() { rc.Del("foobar") }()
 	n, err := rc.Append("foobar", "Hello")
 	if err != nil {
@@ -56,7 +56,7 @@ func _TestAppend(t *testing.T) {
 }
 
 // TestBgRewriteAOF starts an Append Only File rewrite process.
-func _TestBgRewriteAOF(t *testing.T) {
+func __TestBgRewriteAOF(t *testing.T) {
 	status, err := rc.BgRewriteAOF()
 	if err != nil {
 		t.Error(err)
@@ -66,7 +66,7 @@ func _TestBgRewriteAOF(t *testing.T) {
 }
 
 // TestBgSave saves the DB in background.
-func _TestBgSave(t *testing.T) {
+func __TestBgSave(t *testing.T) {
 	status, err := rc.BgSave()
 	if err != nil {
 		t.Error(err)
@@ -76,7 +76,7 @@ func _TestBgSave(t *testing.T) {
 }
 
 // TestBitCount reproduces the example from http://redis.io/commands/bitcount.
-func _TestBitCount(t *testing.T) {
+func TestBitCount(t *testing.T) {
 	defer func() { rc.Del("mykey") }()
 	err := rc.Set("mykey", "foobar")
 	if err != nil {
@@ -92,7 +92,7 @@ func _TestBitCount(t *testing.T) {
 }
 
 // TestBitOp reproduces the example from http://redis.io/commands/bitop.
-func _TestBitOp(t *testing.T) {
+func TestBitOp(t *testing.T) {
 	defer func() { rc.Del("key1", "key2") }()
 	err := rc.Set("key1", "foobar")
 	if err != nil {
@@ -111,7 +111,7 @@ func _TestBitOp(t *testing.T) {
 }
 
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
-func _TestBLPop(t *testing.T) {
+func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
 	k, v, err := rc.BLPop(0, "list1", "list2")
@@ -124,7 +124,7 @@ func _TestBLPop(t *testing.T) {
 }
 
 // TestBRPop reproduces the example from http://redis.io/commands/brpop.
-func _TestBRPop(t *testing.T) {
+func TestBRPop(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
 	k, v, err := rc.BRPop(0, "list1", "list2")
@@ -138,7 +138,7 @@ func _TestBRPop(t *testing.T) {
 
 // TestBRPopTimeout is the same as TestBRPop, but expects a time out.
 // TestBRPopTimeout also tests BLPop (because both share the same code).
-func _TestBRPopTimeout(t *testing.T) {
+func TestBRPopTimeout(t *testing.T) {
 	rc.Del("list1", "list2")
 	k, v, err := rc.BRPop(1, "list1", "list2")
 	if err != ErrTimedOut {
@@ -152,7 +152,7 @@ func _TestBRPopTimeout(t *testing.T) {
 }
 
 // TestBRPopLPush takes last item of a list and inserts into another.
-func _TestBRPopLPush(t *testing.T) {
+func TestBRPopLPush(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
 	v, err := rc.BRPopLPush("list1", "list2", 0)
@@ -165,7 +165,7 @@ func _TestBRPopLPush(t *testing.T) {
 }
 
 // TestBRPopLPushTimeout is the same as TestBRPopLPush, but expects a time out.
-func _TestBRPopLPushTimeout(t *testing.T) {
+func TestBRPopLPushTimeout(t *testing.T) {
 	rc.Del("list1", "list2")
 	v, err := rc.BRPopLPush("list1", "list2", 1)
 	if err != ErrTimedOut {
@@ -198,7 +198,7 @@ func TestClientListKill(t *testing.T) {
 }
 
 // TestClientSetName name the current connection, and looks it up in the list.
-func _TestClientSetName(t *testing.T) {
+func TestClientSetName(t *testing.T) {
 	err := rc.ClientSetName("bozo")
 	if err != nil {
 		t.Error(err)
@@ -226,7 +226,7 @@ func _TestClientSetName(t *testing.T) {
 }
 
 // TestConfigGet tests the server port number.
-func _TestConfigGet(t *testing.T) {
+func TestConfigGet(t *testing.T) {
 	items, err := rc.ConfigGet("*")
 	if err != nil {
 		t.Error(err)
@@ -236,7 +236,7 @@ func _TestConfigGet(t *testing.T) {
 }
 
 // TestConfigSet sets redis dir to /tmp, and back to the default.
-func _TestConfigSet(t *testing.T) {
+func TestConfigSet(t *testing.T) {
 	items, err := rc.ConfigGet("dir")
 	if err != nil {
 		t.Error(err)
@@ -254,7 +254,7 @@ func _TestConfigSet(t *testing.T) {
 }
 
 // TestConfigResetStat resets redis statistics.
-func _TestConfigResetStat(t *testing.T) {
+func TestConfigResetStat(t *testing.T) {
 	err := rc.ConfigResetStat()
 	if err != nil {
 		t.Error(err)
@@ -262,7 +262,7 @@ func _TestConfigResetStat(t *testing.T) {
 }
 
 // TestDBSize checks the current database size, adds a key, and checks again.
-func _TestDBSize(t *testing.T) {
+func TestDBSize(t *testing.T) {
 	size, err := rc.DBSize()
 	if err != nil {
 		t.Error(errUnexpected(err))
@@ -281,7 +281,7 @@ func _TestDBSize(t *testing.T) {
 }
 
 // TestDebugSegfault crashes redis and breaks everything else.
-func _TestDebugSegfault(t *testing.T) {
+func __TestDebugSegfault(t *testing.T) {
 	err := rc.DebugSegfault()
 	if err != nil {
 		t.Error(err)
@@ -289,7 +289,7 @@ func _TestDebugSegfault(t *testing.T) {
 }
 
 // TestDecr reproduces the example from http://redis.io/commands/decr.
-func _TestDecr(t *testing.T) {
+func TestDecr(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "10")
 	n, err := rc.Decr("mykey")
@@ -302,7 +302,7 @@ func _TestDecr(t *testing.T) {
 }
 
 // TestDecrBy reproduces the example from http://redis.io/commands/decrby.
-func _TestDecrBy(t *testing.T) {
+func TestDecrBy(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "10")
 	n, err := rc.DecrBy("mykey", 5)
@@ -315,7 +315,7 @@ func _TestDecrBy(t *testing.T) {
 }
 
 // TestDel creates 1024 keys and deletes them.
-func _TestDel(t *testing.T) {
+func TestDel(t *testing.T) {
 	keys := make([]string, 1024)
 	for n := 0; n < cap(keys); n++ {
 		k := randomString(4) + string(n)
@@ -338,7 +338,7 @@ func _TestDel(t *testing.T) {
 // TODO: TestDiscard
 
 // TestDump reproduces the example from http://redis.io/commands/dump.
-func _TestDump(t *testing.T) {
+func TestDump(t *testing.T) {
 	rc.Set("mykey", "10")
 	v, err := rc.Dump("mykey")
 	if err != nil {
@@ -350,7 +350,7 @@ func _TestDump(t *testing.T) {
 }
 
 // TestDump reproduces the example from http://redis.io/commands/echo.
-func _TestEcho(t *testing.T) {
+func TestEcho(t *testing.T) {
 	m := "Hello World!"
 	v, err := rc.Echo(m)
 	if err != nil {
