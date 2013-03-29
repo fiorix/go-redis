@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,6 +59,9 @@ var (
 
 	// ErrNoServers is returned when no servers are configured or available.
 	ErrNoServers = errors.New("memcache: no servers configured or available")
+
+	// ErrTimedOut is returned when a Read or Write operation times out
+	ErrTimedOut = errors.New("redis: timed out")
 )
 
 // DefaultTimeout is the default socket read/write timeout.
@@ -254,20 +258,20 @@ func (c *Client) getConn(addr net.Addr) (*conn, error) {
 }
 
 // executeWithKey picks a server based on the key, and executes a command in redis.
-func (c *Client) execWithKey(cmd, key string, a ...string) (v interface{}, err error) {
+func (c *Client) execWithKey(urp bool, cmd, key string, a ...string) (v interface{}, err error) {
 	addr, err := c.selector.PickServer(key)
 	if err != nil {
 		return
 	}
 	x := []string{cmd, key}
-	return c.execWithAddr(addr, append(x, a...)...)
+	return c.execWithAddr(urp, addr, append(x, a...)...)
 }
 
 // executeWithKeys calls executeWithKey for each key, returns an array
-func (c *Client) execWithKeys(cmd string, keys []string, a ...string) (v interface{}, err error) {
+func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) (v interface{}, err error) {
 	var r []interface{}
 	for _, k := range keys {
-		if tmp, e := c.execWithKey(cmd, k, a...); e != nil {
+		if tmp, e := c.execWithKey(urp, cmd, k, a...); e != nil {
 			err = e
 			return
 		} else {
@@ -279,25 +283,36 @@ func (c *Client) execWithKeys(cmd string, keys []string, a ...string) (v interfa
 }
 
 // executeWithAddr executes a command in a specific redis server
-func (c *Client) execWithAddr(addr net.Addr, a ...string) (v interface{}, err error) {
+func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface{}, err error) {
 	cn, err := c.getConn(addr)
 	if err != nil {
 		return
 	}
 	defer cn.condRelease(&err)
-	return c.execute(cn.rw, a...)
+	return c.execute(urp, cn.rw, a...)
 }
 
 // execute sends a command to redis, then reads and parses the response.
-// It's the redis wire protocol: http://redis.io/topics/protocol
-func (c *Client) execute(rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
-	fmt.Printf("Sending: %#v\n", a)
-	_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
-	if err != nil {
-		return
-	}
-	for _, item := range a {
-		_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(item), item)
+// execute uses the old protocol, unless urp=true (Unified Request Protocol).
+// URP is optional to support (old) commands list CLIENT LIST, CLIENT KILL.
+// Redis wire protocol: http://redis.io/topics/protocol
+func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
+	//fmt.Printf("\nSending: %#v\n", a)
+	if urp {
+		// Optional: Unified Request Protocol
+		_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
+		if err != nil {
+			return
+		}
+		for _, item := range a {
+			_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(item), item)
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		// Default: old redis protocol.
+		_, err = fmt.Fprintf(rw, strings.Join(a, " ")+"\r\n")
 		if err != nil {
 			return
 		}
@@ -316,6 +331,11 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		err = e
 		return
 	}
+	//fmt.Printf("line=%#v err=%#v\n", string(line), err)
+	if len(line) < 1 {
+		err = ErrTimedOut
+		return
+	}
 	reply := byte(line[0])
 	lineLen := len(line)
 	crlf := []byte("\r\n")
@@ -323,20 +343,20 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		line = line[1 : lineLen-2]
 	}
 	switch reply {
-	case '-':
+	case '-': // Error reply
 		err = errors.New(string(line))
 		return
-	case '+':
+	case '+': // Status reply
 		v = string(line)
 		return
-	case ':':
+	case ':': // Integer reply
 		response, e := strconv.Atoi(string(line))
 		if e != nil {
 			err = e
 			return
 		}
 		v = response
-	case '$':
+	case '$': // Bulk reply
 		valueLen, e := strconv.Atoi(string(line))
 		if e != nil {
 			err = e
@@ -361,8 +381,27 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		}
 		v = string(b[:valueLen]) // removes proto trailing crlf
 		return
-	case '*':
-		fmt.Println("It's an asterisk!", line)
+	case '*': // Multi-bulk reply
+		//fmt.Printf("multibulk line=%#v\n", line)
+		nitems, e := strconv.Atoi(string(line))
+		if e != nil {
+			err = e
+			return
+		}
+		if nitems < 1 {
+			v = nil
+			return
+		}
+		resp := make([]interface{}, nitems)
+		for n := 0; n < nitems; n++ {
+			resp[n], err = c.parseResponse(rw)
+			if err != nil {
+				return
+			}
+		}
+		//fmt.Printf("multibulk=%#v\n", resp)
+		v = resp
+		return
 	default:
 		fmt.Println("Unexpected line:", string(line))
 	}
@@ -371,12 +410,24 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 }
 
 // Redis commands
-// vvvvvvvvvvvvvv
+//
+// Some commands take an integer timeout, in seconds. It's not a time.Duration
+// because redis only supports second resolution for timeouts.
+//
+// Redis allows clients to block indefinetely by setting timeout to 0, but
+// it does not work here. All functions below use the timeout not only to
+// block the operation in redis, but also as a socket read timeout (+delta)
+// to free up system resources.
+//
+// The default TCP read timeout is 100ms.
+//
+// If a timeout is required to be "indefinetely", then set it to 24h-ish.
+// 🍺
 
 // Append appends a value to a key, and returns the length of the new value.
 // http://redis.io/commands/append
 func (c *Client) Append(key, value string) (int, error) {
-	n, err := c.execWithKey("append", key, value)
+	n, err := c.execWithKey(true, "append", key, value)
 	if err != nil {
 		return 0, err
 	}
@@ -387,13 +438,11 @@ func (c *Client) Append(key, value string) (int, error) {
 	return 0, ErrServerError
 }
 
-// Auth tries to authenticate the client by sending a password to the server.
 // http://redis.io/commands/auth
-//
 // Auth is only executed in a specific connection of the Client instance.
 // TODO: automatically call Auth on new connections
 func (c *Client) Auth(addr net.Addr, passwd string) error {
-	ok, err := c.execWithAddr(addr, "auth", passwd)
+	ok, err := c.execWithAddr(true, addr, "auth", passwd)
 	if err != nil {
 		return err
 	}
@@ -404,17 +453,14 @@ func (c *Client) Auth(addr net.Addr, passwd string) error {
 	return ErrServerError
 }
 
-// BgRewriteAOF
 // http://redis.io/commands/bgrewriteaof
-//
-// BgRewriteAOF is only executed in the control server.
-// See selector.PickControlServer for details.
+// BgRewriteAOF does not work on sharded connections.
 func (c *Client) BgRewriteAOF() (string, error) {
 	addr, err := c.selector.PickControlServer()
 	if err != nil {
 		return "", err
 	}
-	status, err := c.execWithAddr(addr, "bgrewriteaof")
+	status, err := c.execWithAddr(false, addr, "bgrewriteaof")
 	if err != nil {
 		return "", err
 	}
@@ -425,17 +471,14 @@ func (c *Client) BgRewriteAOF() (string, error) {
 	return "", ErrServerError
 }
 
-// BgSave
 // http://redis.io/commands/bgsave
-//
-// BgSave is only executed in the control server.
-// See selector.PickControlServer for details.
+// BgSave does not work on sharded connections.
 func (c *Client) BgSave() (string, error) {
 	addr, err := c.selector.PickControlServer()
 	if err != nil {
 		return "", err
 	}
-	status, err := c.execWithAddr(addr, "bgsave")
+	status, err := c.execWithAddr(false, addr, "bgsave")
 	if err != nil {
 		return "", err
 	}
@@ -457,10 +500,10 @@ func (c *Client) BitCount(key string, start, end int) (int, error) {
 		err error
 	)
 	if start > -1 {
-		n, err = c.execWithKey("bitcount", key,
+		n, err = c.execWithKey(true, "bitcount", key,
 			fmt.Sprintf("%d", start), fmt.Sprintf("%d", end))
 	} else {
-		n, err = c.execWithKey("bitcount", key)
+		n, err = c.execWithKey(true, "bitcount", key)
 	}
 	if err != nil {
 		return 0, err
@@ -476,14 +519,14 @@ func (c *Client) BitCount(key string, start, end int) (int, error) {
 // result in the destination.
 // http://redis.io/commands/bitop
 //
-// BitOp does not work if the client is connected to different servers.
+// BitOp does not work on sharded connections.
 func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, error) {
 	addr, err := c.selector.PickServer(key)
 	if err != nil {
 		return 0, err
 	}
 	a := []string{"bitop", operation, destkey, key}
-	n, err := c.execWithAddr(addr, append(a, keys...)...)
+	n, err := c.execWithAddr(true, addr, append(a, keys...)...)
 	if err != nil {
 		return 0, err
 	}
@@ -494,12 +537,220 @@ func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, err
 	return 0, ErrServerError
 }
 
+// blbrPop is a generic function used by both BLPop and BRPop.
+func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, err error) {
+	t := c.Timeout
+	keys = append(keys, fmt.Sprintf("%d", timeout))
+	var resp interface{}
+	// Extend the client's timeout for this operation only.
+	// TODO: make sure it does not affect other concurrent calls.
+	if t != 0 {
+		c.Timeout = time.Duration(timeout) + t
+	} else {
+		c.Timeout = time.Duration(timeout) + DefaultTimeout
+	}
+	resp, err = c.execWithKey(true, cmd, keys[0], keys[1:]...)
+	c.Timeout = t
+	if err != nil {
+		return
+	}
+	if resp == nil {
+		err = ErrTimedOut
+		return
+	}
+	switch resp.(type) {
+	case []interface{}:
+		items := resp.([]interface{})
+		if len(items) != 2 {
+			err = ErrServerError
+			return
+		}
+		k = fmt.Sprintf("%s", items[0])
+		v = fmt.Sprintf("%s", items[1])
+		return
+	}
+	err = ErrServerError
+	return
+}
+
+// http://redis.io/commands/blpop
+// BLPop does not work on sharded connections.
+func (c *Client) BLPop(timeout int, keys ...string) (k, v string, err error) {
+	return c.blbrPop("blpop", timeout, keys...)
+}
+
+// http://redis.io/commands/brpop
+// BRPop does not work on sharded connections.
+func (c *Client) BRPop(timeout int, keys ...string) (k, v string, err error) {
+	return c.blbrPop("brpop", timeout, keys...)
+}
+
+// http://redis.io/commands/brpoplpush
+// BRPopLPush does not work on sharded connections.
+func (c *Client) BRPopLPush(src, dst string, timeout int) (string, error) {
+	t := c.Timeout
+	// Extend the client's timeout for this operation only.
+	// TODO: make sure it does not affect other concurrent calls.
+	if t != 0 {
+		c.Timeout = time.Duration(timeout)*time.Second + t
+	} else {
+		c.Timeout = time.Duration(timeout)*time.Second + DefaultTimeout
+	}
+	resp, err := c.execWithKey(true, "brpoplpush", src,
+		[]string{dst, fmt.Sprintf("%d", timeout)}...)
+	c.Timeout = t
+	if err != nil {
+		return "", err
+	}
+	if resp == nil {
+		return "", ErrTimedOut
+	}
+	switch resp.(type) {
+	case string:
+		return resp.(string), nil
+	}
+	return "", ErrServerError
+}
+
+// http://redis.io/commands/client-kill
+// ClientKill does not work on sharded connections.
+func (c *Client) ClientKill(kill_addr string) error {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return err
+	}
+	ok, err := c.execWithAddr(false, addr,
+		fmt.Sprintf("client kill %s", kill_addr))
+	if err != nil {
+		return err
+	}
+	switch ok.(type) {
+	case string:
+		return nil
+	}
+	return ErrServerError
+}
+
+// http://redis.io/commands/client-list
+// ClientList does not work on sharded connections.
+func (c *Client) ClientList() ([]string, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return nil, err
+	}
+	items, err := c.execWithAddr(false, addr, "client list")
+	if err != nil {
+		return nil, err
+	}
+	switch items.(type) {
+	case string:
+		return strings.Split(items.(string), "\n"), nil
+	}
+	return nil, ErrServerError
+}
+
+// http://redis.io/commands/client-setname
+// ClientSetName does not work on sharded connections, and is useless here.
+// This driver creates connections on demand, thus naming them is pointless.
+func (c *Client) ClientSetName(name string) error {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return err
+	}
+	ok, err := c.execWithAddr(false, addr,
+		fmt.Sprintf("client setname %s", name))
+	if err != nil {
+		return err
+	}
+	switch ok.(type) {
+	case string:
+		return nil
+	}
+	return ErrServerError
+}
+
+// http://redis.io/commands/config-get
+// ConfigGet does not work on sharded connections.
+func (c *Client) ConfigGet(name string) (map[string]string, error) {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.execWithAddr(false, addr,
+		fmt.Sprintf("config get %s", name))
+	if err != nil {
+		return nil, err
+	}
+	var items []interface{}
+	switch resp.(type) {
+	case []interface{}:
+		items = resp.([]interface{})
+	default:
+		return nil, ErrServerError
+	}
+	k := ""
+	v := ""
+	m := make(map[string]string)
+	for n, item := range items {
+		switch item.(type) {
+		case string:
+			v = item.(string)
+		default:
+			return nil, ErrServerError
+		}
+		if n%2 == 0 {
+			k = v
+		} else if n%2 == 1 {
+			m[k] = v
+		}
+	}
+	m[k] = v
+	return m, nil
+}
+
+// http://redis.io/commands/config-set
+// ConfigSet does not work on sharded connections.
+func (c *Client) ConfigSet(name, value string) error {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return err
+	}
+	ok, err := c.execWithAddr(false, addr,
+		fmt.Sprintf("config set %s %s", name, value))
+	if err != nil {
+		return err
+	}
+	switch ok.(type) {
+	case string:
+		return nil
+	}
+	return ErrServerError
+}
+
+// http://redis.io/commands/config-resetstat
+// ConfigResetStat does not work on sharded connections.
+func (c *Client) ConfigResetStat() error {
+	addr, err := c.selector.PickControlServer()
+	if err != nil {
+		return err
+	}
+	ok, err := c.execWithAddr(false, addr, "config resetstat")
+	if err != nil {
+		return err
+	}
+	switch ok.(type) {
+	case string:
+		return nil
+	}
+	return ErrServerError
+}
+
 // WIP
 
 // Get gets the item for the given key. ErrCacheMiss is returned for a
 // memcache cache miss. The key must be at most 250 bytes in length.
 func (c *Client) Get(key string) (string, error) {
-	value, err := c.execWithKey("get", key)
+	value, err := c.execWithKey(true, "get", key)
 	if err != nil {
 		return "", err
 	}
@@ -551,21 +802,21 @@ func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
 
 // Set writes the given item, unconditionally.
 func (c *Client) Set(key, value string) (err error) {
-	_, err = c.execWithKey("set", key, value)
+	_, err = c.execWithKey(true, "set", key, value)
 	return
 }
 
 // Add writes the given item, if no value already exists for its
 // key. ErrNotStored is returned if that condition is not met.
 func (c *Client) Add(key, value string) (err error) {
-	_, err = c.execWithKey("add", key, value)
+	_, err = c.execWithKey(true, "add", key, value)
 	return
 }
 
 // Delete deletes the item with the provided key. The error ErrCacheMiss is
 // returned if the item didn't already exist in the cache.
-func (c *Client) Delete(keys []string) (int, error) {
-	v, err := c.execWithKeys("del", keys)
+func (c *Client) Delete(keys ...string) (int, error) {
+	v, err := c.execWithKeys(true, "del", keys)
 	if err != nil {
 		return 0, err
 	}
@@ -621,3 +872,18 @@ func (c *Client) incrDecr(verb, key string, delta uint64) (uint64, error) {
 	return val, err
 }
 */
+
+// RPush appends values at the tail of the list stored at key.
+// RPush returns the length of the list after the push operation.
+// http://redis.io/commands/rpush
+func (c *Client) RPush(key string, values ...string) (int, error) {
+	n, err := c.execWithKey(true, "rpush", key, values...)
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
