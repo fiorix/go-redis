@@ -398,6 +398,33 @@ func TestEvalSha(t *testing.T) {
 	//fmt.Printf("v=%#v\n", v)
 }
 
+// TODO: TestExec
+
+// TestExists reproduces the example from http://redis.io/commands/exists.
+func TestExists(t *testing.T) {
+	rc.Del("key1", "key2")
+	rc.Set("key1", "Hello")
+	ok, err := rc.Exists("key1")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if !ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
+	ok, err = rc.Exists("key2")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if ok {
+		t.Error(errUnexpected(ok))
+		return
+	}
+	rc.Del("key1", "key2")
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
 	k := randomString(1024)

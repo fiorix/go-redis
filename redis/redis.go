@@ -297,7 +297,7 @@ func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface
 // URP is optional to support (old) commands list CLIENT LIST, CLIENT KILL.
 // Redis wire protocol: http://redis.io/topics/protocol
 func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
-	fmt.Printf("\nSending: %#v\n", a)
+	//fmt.Printf("\nSending: %#v\n", a)
 	if urp {
 		// Optional: Unified Request Protocol
 		_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
@@ -808,7 +808,7 @@ func (c *Client) DecrBy(key string, decrement int) (int, error) {
 }
 
 // http://redis.io/commands/del
-// TODO: Use a single connection when possible (not sharded)
+// TODO: Use a single connection when possible, or rename this to DelMulti.
 func (c *Client) Del(keys ...string) (int, error) {
 	v, err := c.execWithKeys(true, "del", keys)
 	if err != nil {
@@ -895,6 +895,26 @@ func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string)
 		return nil, err
 	}
 	return resp, nil
+}
+
+// http://redis.io/commands/exec
+// TODO: Exec
+
+// http://redis.io/commands/exists
+func (c *Client) Exists(key string) (bool, error) {
+	n, err := c.execWithKey(true, "exists", key)
+	if err != nil {
+		return false, err
+	}
+	switch n.(type) {
+	case int:
+		if n.(int) == 1 {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+	return false, ErrServerError
 }
 
 // WIP
