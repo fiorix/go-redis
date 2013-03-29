@@ -485,6 +485,31 @@ func TestExpireAt(t *testing.T) {
 	}
 }
 
+// FlushAll and FlushDB are not required because they never fail.
+
+// TestGet reproduces the example from http://redis.io/commands/get
+func TestGet(t *testing.T) {
+	rc.Del("nonexisting")
+	v, err := rc.Get("nonexisting")
+	if err != nil {
+		t.Error(err)
+		return
+	} else if v != "" {
+		t.Error(errUnexpected(v))
+		return
+	}
+	rc.Set("mykey", "Hello")
+	v, err = rc.Get("mykey")
+	if err != nil {
+		t.Error(err)
+	} else if v == "" {
+		t.Error(errUnexpected(v))
+	}
+	rc.Del("mykey")
+}
+
+// TODO: TestGet reproduces the example from http://redis.io/commands/getbit
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
 	k := randomString(1024)

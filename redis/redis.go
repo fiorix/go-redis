@@ -373,7 +373,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 			return
 		}
 		if valueLen == -1 {
-			err = ErrCacheMiss
+			v = "" // err = ErrCacheMiss
 			return
 		}
 		b := make([]byte, valueLen+2) // 2==crlf, TODO: fix this
@@ -927,18 +927,50 @@ func (c *Client) ExpireAt(key string, timestamp int) (bool, error) {
 	return false, ErrServerError
 }
 
+// http://redis.io/commands/flushall
+// FlushAll is not fully supported on sharded connections.
+func (c *Client) FlushAll() error {
+	_, err := c.execOnFirst(false, "FLUSHALL")
+	return err
+}
+
+// http://redis.io/commands/flushall
+// FlushDB is not fully supported on sharded connections.
+func (c *Client) FlushDB() error {
+	_, err := c.execOnFirst(false, "FLUSHDB")
+	return err
+}
+
+// http://redis.io/commands/get
+func (c *Client) Get(key string) (string, error) {
+	v, err := c.execWithKey(true, "GET", key)
+	if err != nil {
+		return "", err
+	}
+	switch v.(type) {
+	case string:
+		return v.(string), nil
+	}
+	return "", ErrServerError
+}
+
+// http://redis.io/commands/getbit
+func (c *Client) GetBit(key string, offset int) (int, error) {
+	v, err := c.execWithKey(true, "GETBIT", key)
+	if err != nil {
+		return 0, err
+	}
+	switch v.(type) {
+	case int:
+		return v.(int), nil
+	}
+	return 0, ErrServerError
+}
+
 // WIP
 
 // Get gets the item for the given key. ErrCacheMiss is returned for a
 // memcache cache miss. The key must be at most 250 bytes in length.
-func (c *Client) Get(key string) (string, error) {
-	value, err := c.execWithKey(true, "get", key)
-	if err != nil {
-		return "", err
-	}
-	return value.(string), err
-}
-
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
 	n, err := c.execWithKey(true, "rpush", key, values...)
