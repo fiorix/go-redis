@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// TODO: sort tests by dependency (set first, etc)
+
 // rc is the redis client handler used for all tests.
 // Make sure redis-server is running before starting the tests.
 var rc *Client
@@ -508,7 +510,31 @@ func TestGet(t *testing.T) {
 	rc.Del("mykey")
 }
 
-// TODO: TestGet reproduces the example from http://redis.io/commands/getbit
+// TestGetBit reproduces the example from http://redis.io/commands/getbit.
+// TestGetBit also tests SetBit.
+func TestGetBit(t *testing.T) {
+	rc.Del("mykey")
+	_, err := rc.SetBit("mykey", 7, 1)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	v, err := rc.GetBit("mykey", 0)
+	if err != nil {
+		t.Error(err)
+		return
+	} else if v != 0 {
+		t.Error(errUnexpected(v))
+		return
+	}
+	v, err = rc.GetBit("mykey", 7)
+	if err != nil {
+		t.Error(err)
+	} else if v != 1 {
+		t.Error(errUnexpected(v))
+	}
+	rc.Del("mykey")
+}
 
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
