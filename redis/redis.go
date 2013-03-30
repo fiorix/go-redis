@@ -256,6 +256,8 @@ func (c *Client) getConn(addr net.Addr) (*conn, error) {
 	return cn, nil
 }
 
+// Redis protocol: http://redis.io/topics/protocol
+
 // execWithKey picks a server based on the key, and executes a command in redis.
 func (c *Client) execWithKey(urp bool, cmd, key string, a ...string) (v interface{}, err error) {
 	addr, err := c.selector.PickServer(key)
@@ -301,12 +303,8 @@ func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface
 	return c.execute(urp, cn.rw, a...)
 }
 
-// exe
-
 // execute sends a command to redis, then reads and parses the response.
-// execute uses the old protocol, unless urp=true (Unified Request Protocol).
-// URP is optional to support (old) commands list CLIENT LIST, CLIENT KILL.
-// Redis wire protocol: http://redis.io/topics/protocol
+// execute uses the old protocol, unless urp is true (Unified Request Protocol).
 func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
 	//fmt.Printf("\nSending: %#v\n", a)
 	if urp {
@@ -335,7 +333,7 @@ func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interfa
 	return c.parseResponse(rw)
 }
 
-// parseResponse reads and parses responses from redis.
+// parseResponse reads and parses a single response from redis.
 func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) {
 	line, e := rw.ReadSlice('\n')
 	if err != nil {
@@ -413,6 +411,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		v = resp
 		return
 	default:
+		// TODO: return error and kill it
 		fmt.Println("Unexpected line:", string(line))
 	}
 
@@ -434,7 +433,6 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 // If a timeout is required to be "indefinetely", then set it to 24h-ish.
 // 🍺
 
-// Append appends a value to a key, and returns the length of the new value.
 // http://redis.io/commands/append
 func (c *Client) Append(key, value string) (int, error) {
 	n, err := c.execWithKey(true, "append", key, value)
@@ -491,10 +489,8 @@ func (c *Client) BgSave() (string, error) {
 	return "", ErrServerError
 }
 
-// BitCount counts the number of set bits (population counting) in a string.
 // http://redis.io/commands/bitcount
-//
-// BitCount will not send start and end if start is a negative number.
+// BitCount ignores start and end if start is a negative number.
 func (c *Client) BitCount(key string, start, end int) (int, error) {
 	// TODO: move int convertions to .execute (it should take interface{})
 	var (
@@ -517,10 +513,7 @@ func (c *Client) BitCount(key string, start, end int) (int, error) {
 	return 0, ErrServerError
 }
 
-// BitOp performs a bitwise operation between multiple keys and store the
-// result in the destination.
 // http://redis.io/commands/bitop
-//
 // BitOp is not fully supported on sharded connections.
 func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, error) {
 	a := []string{"BITOP", operation, destkey, key}
@@ -535,7 +528,7 @@ func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, err
 	return 0, ErrServerError
 }
 
-// blbrPop is a generic function used by both BLPop and BRPop.
+// blbrPop supports both BLPop and BRPop.
 func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, err error) {
 	t := c.Timeout
 	keys = append(keys, fmt.Sprintf("%d", timeout))
@@ -563,8 +556,9 @@ func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, 
 			err = ErrServerError
 			return
 		}
-		k = fmt.Sprintf("%s", items[0])
-		v = fmt.Sprintf("%s", items[1])
+		// TODO: test types
+		k = items[0].(string)
+		v = items[1].(string)
 		return
 	}
 	err = ErrServerError
@@ -956,7 +950,7 @@ func (c *Client) Get(key string) (string, error) {
 
 // http://redis.io/commands/getbit
 func (c *Client) GetBit(key string, offset int) (int, error) {
-	v, err := c.execWithKey(true, "GETBIT", key)
+	v, err := c.execWithKey(true, "GETBIT", key, fmt.Sprintf("%d", offset))
 	if err != nil {
 		return 0, err
 	}
@@ -973,7 +967,7 @@ func (c *Client) GetBit(key string, offset int) (int, error) {
 // memcache cache miss. The key must be at most 250 bytes in length.
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
-	n, err := c.execWithKey(true, "rpush", key, values...)
+	n, err := c.execWithKey(true, "RPUSH", key, values...)
 	if err != nil {
 		return 0, err
 	}
@@ -986,7 +980,7 @@ func (c *Client) RPush(key string, values ...string) (int, error) {
 
 // http://redis.io/commands/script-load
 func (c *Client) ScriptLoad(script string) (string, error) {
-	v, err := c.execOnFirst(true, "script", "load", script)
+	v, err := c.execOnFirst(true, "SCRIPT", "LOAD", script)
 	if err != nil {
 		return "", err
 	}
@@ -999,8 +993,22 @@ func (c *Client) ScriptLoad(script string) (string, error) {
 
 // Set writes the given item, unconditionally.
 func (c *Client) Set(key, value string) (err error) {
-	_, err = c.execWithKey(true, "set", key, value)
+	_, err = c.execWithKey(true, "SET", key, value)
 	return
+}
+
+// http://redis.io/commands/setbit
+func (c *Client) SetBit(key string, offset, value int) (int, error) {
+	v, err := c.execWithKey(true, "SETBIT", key,
+		fmt.Sprintf("%d", offset), fmt.Sprintf("%d", value))
+	if err != nil {
+		return 0, err
+	}
+	switch v.(type) {
+	case int:
+		return v.(int), nil
+	}
+	return 0, ErrServerError
 }
 
 // http://redis.io/commands/ttl
