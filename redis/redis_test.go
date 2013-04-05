@@ -536,6 +536,37 @@ func TestGetBit(t *testing.T) {
 	rc.Del("mykey")
 }
 
+// TestMGet reproduces the example from http://redis.io/commands/mget.
+func TestMGet(t *testing.T) {
+	rc.Set("key1", "Hello")
+	rc.Set("key2", "World")
+	items, err := rc.MGet("key1", "key2")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if items[0] != "Hello" || items[1] != "World" {
+		t.Error(errUnexpected(items))
+	}
+	rc.Del("key1", "key2")
+}
+
+// TestMSet reproduces the example from http://redis.io/commands/mset.
+func TestMSet(t *testing.T) {
+	rc.Del("key1", "key2")
+	err := rc.MSet(map[string]string{"key1": "Hello", "key2": "World"})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	v1, _ := rc.Get("key1")
+	v2, _ := rc.Get("key2")
+	if v1 != "Hello" || v2 != "World" {
+		t.Error(errUnexpected(v1 + ", " + v2))
+	}
+	rc.Del("key1", "key2")
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
 	k := randomString(1024)
