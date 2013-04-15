@@ -603,8 +603,6 @@ func (c *Client) MSet(items map[string]string) error {
 	return nil
 }
 
-// Get gets the item for the given key. ErrCacheMiss is returned for a
-// memcache cache miss. The key must be at most 250 bytes in length.
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
 	n, err := c.execWithKey(true, "RPUSH", key, values...)
@@ -631,7 +629,7 @@ func (c *Client) ScriptLoad(script string) (string, error) {
 	return "", ErrServerError
 }
 
-// Set writes the given item, unconditionally.
+// http://redis.io/commands/set
 func (c *Client) Set(key, value string) (err error) {
 	_, err = c.execWithKey(true, "SET", key, value)
 	return

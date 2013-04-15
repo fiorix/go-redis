@@ -73,6 +73,11 @@ func parseOptions(srv *ServerInfo, opts []string) error {
 	return nil
 }
 
+func invalidServerError(server string, err error) error {
+	return errors.New(fmt.Sprintf("Invalid redis server '%s': %s",
+		server, err))
+}
+
 // SetServers changes a ServerList's set of servers at runtime and is
 // threadsafe.
 //
@@ -82,7 +87,7 @@ func parseOptions(srv *ServerInfo, opts []string) error {
 // SetServers returns an error if any of the server names fail to
 // resolve. No attempt is made to connect to the server. If any error
 // is returned, no changes are made to the ServerList.
-func (ss *ServerList) SetServers(servers ...string) {
+func (ss *ServerList) SetServers(servers ...string) error {
 	var err error
 	var fs, addr net.Addr
 	nsrv := make([]ServerInfo, len(servers))
@@ -95,16 +100,14 @@ func (ss *ServerList) SetServers(servers ...string) {
 			addr, err = net.ResolveTCPAddr("tcp", items[0])
 		}
 		if err != nil {
-			panic(fmt.Sprintf("Invalid redis server '%s': %s",
-				server, err))
+			return invalidServerError(server, err)
 		} else {
 			nsrv[i].Addr = addr
 		}
 		// parse connection options
 		if len(items) > 1 {
 			if err := parseOptions(&nsrv[i], items[1:]); err != nil {
-				panic(fmt.Sprintf("Invalid redis server '%s': %s",
-					server, err))
+				return invalidServerError(server, err)
 			}
 		}
 		if i == 0 {
@@ -116,6 +119,7 @@ func (ss *ServerList) SetServers(servers ...string) {
 	ss.lk.Lock()
 	defer ss.lk.Unlock()
 	ss.servers = nsrv
+	return nil
 }
 
 func (ss *ServerList) Sharding() bool {

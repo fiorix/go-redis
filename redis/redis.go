@@ -74,7 +74,9 @@ func resumableError(err error) bool {
 //	rc := redis.New("ip:port db=N passwd=foobared")
 func New(server ...string) *Client {
 	ss := new(ServerList)
-	ss.SetServers(server...)
+	if err := ss.SetServers(server...); err != nil {
+		panic(err)
+	}
 	return NewFromSelector(ss)
 }
 
