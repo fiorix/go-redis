@@ -51,29 +51,17 @@ const (
 	maxIdleConnsPerAddr = 2 // TODO(bradfitz): make this configurable?
 )
 
-func legalKey(key string) bool {
-	if len(key) > 250 {
+// resumableError returns true if err is only a protocol-level cache error.
+// This is used to determine whether or not a server connection should
+// be re-used or not. If an error occurs, by default we don't reuse the
+// connection, unless it was just a cache error.
+func resumableError(err error) bool {
+	switch err {
+	case ErrTimedOut, ErrServerError:
 		return false
-	}
-	for i := 0; i < len(key); i++ {
-		if key[i] <= ' ' || key[i] > 0x7e {
-			return false
-		}
 	}
 	return true
 }
-
-var (
-	crlf            = []byte("\r\n")
-	resultStored    = []byte("STORED\r\n")
-	resultNotStored = []byte("NOT_STORED\r\n")
-	resultExists    = []byte("EXISTS\r\n")
-	resultNotFound  = []byte("NOT_FOUND\r\n")
-	resultDeleted   = []byte("DELETED\r\n")
-	resultEnd       = []byte("END\r\n")
-
-	resultClientErrorPrefix = []byte("CLIENT_ERROR ")
-)
 
 // New returns a redis client using the provided server(s) with equal weight.
 // If a server is listed multiple times, it gets a proportional amount of
@@ -130,7 +118,7 @@ func (cn *conn) extendDeadline() {
 // cache miss).  The purpose is to not recycle TCP connections that
 // are bad.
 func (cn *conn) condRelease(err *error) {
-	if *err == nil {
+	if *err == nil || resumableError(*err) {
 		cn.release()
 	} else {
 		cn.nc.Close()
@@ -333,7 +321,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 	}
 	reply := byte(line[0])
 	lineLen := len(line)
-	if len(line) > 2 && bytes.Equal(line[lineLen-2:], crlf) {
+	if len(line) > 2 && bytes.Equal(line[lineLen-2:], []byte("\r\n")) {
 		line = line[1 : lineLen-2]
 	}
 	switch reply {
