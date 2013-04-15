@@ -36,7 +36,6 @@ package redis
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"time"
 )
@@ -52,21 +51,6 @@ func (c *Client) Append(key, value string) (int, error) {
 		return n.(int), nil
 	}
 	return 0, ErrServerError
-}
-
-// http://redis.io/commands/auth
-// Auth is only executed in a specific connection of the Client instance.
-// TODO: automatically call Auth on new connections
-func (c *Client) Auth(addr net.Addr, passwd string) error {
-	ok, err := c.execWithAddr(true, addr, "auth", passwd)
-	if err != nil {
-		return err
-	}
-	switch ok.(type) {
-	case string:
-		return nil
-	}
-	return ErrServerError
 }
 
 // http://redis.io/commands/bgrewriteaof
