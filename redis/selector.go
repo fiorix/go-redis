@@ -18,6 +18,8 @@
 package redis
 
 import (
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"net"
 	"strings"
@@ -32,18 +34,43 @@ type ServerSelector interface {
 	// PickServer returns the server address that a given item
 	// should be shared onto, or the first listed server if an
 	// empty key is given.
-	PickServer(key string) (net.Addr, error)
+	PickServer(key string) (ServerInfo, error)
 
 	// Sharding returns true if the client can connect to multiple
 	// different servers. e.g.: 10.0.0.1:6379, 10.0.0.1:6380, 10.0.0.2:6379
 	Sharding() bool
 }
 
+// ServerInfo stores parsed the server information, ip:port, dbid and passwd.
+type ServerInfo struct {
+	Addr   net.Addr
+	DB     string
+	Passwd string
+}
+
 // ServerList is a simple ServerSelector. Its zero value is usable.
 type ServerList struct {
 	lk       sync.RWMutex
-	addrs    []net.Addr
+	servers  []ServerInfo
 	sharding bool
+}
+
+func parseOptions(srv *ServerInfo, opts []string) error {
+	for _, opt := range opts {
+		items := strings.Split(opt, "=")
+		if len(items) != 2 {
+			return errors.New("Unknown option " + opt)
+		}
+		switch items[0] {
+		case "db":
+			srv.DB = items[1]
+		case "passwd":
+			srv.Passwd = items[1]
+		default:
+			return errors.New("Unknown option " + opt)
+		}
+	}
+	return nil
 }
 
 // SetServers changes a ServerList's set of servers at runtime and is
@@ -55,19 +82,30 @@ type ServerList struct {
 // SetServers returns an error if any of the server names fail to
 // resolve. No attempt is made to connect to the server. If any error
 // is returned, no changes are made to the ServerList.
-func (ss *ServerList) SetServers(servers ...string) (err error) {
+func (ss *ServerList) SetServers(servers ...string) {
+	var err error
 	var fs, addr net.Addr
-	naddr := make([]net.Addr, len(servers))
+	nsrv := make([]ServerInfo, len(servers))
 	for i, server := range servers {
-		if strings.Contains(server, "/") {
-			addr, err = net.ResolveUnixAddr("unix", server)
+		// addr db=N passwd=foobar
+		items := strings.Split(server, " ")
+		if strings.Contains(items[0], "/") {
+			addr, err = net.ResolveUnixAddr("unix", items[0])
 		} else {
-			addr, err = net.ResolveTCPAddr("tcp", server)
+			addr, err = net.ResolveTCPAddr("tcp", items[0])
 		}
 		if err != nil {
-			return err
+			panic(fmt.Sprintf("Invalid redis server '%s': %s",
+				server, err))
 		} else {
-			naddr[i] = addr
+			nsrv[i].Addr = addr
+		}
+		// parse connection options
+		if len(items) > 1 {
+			if err := parseOptions(&nsrv[i], items[1:]); err != nil {
+				panic(fmt.Sprintf("Invalid redis server '%s': %s",
+					server, err))
+			}
 		}
 		if i == 0 {
 			fs = addr
@@ -75,28 +113,26 @@ func (ss *ServerList) SetServers(servers ...string) (err error) {
 			ss.sharding = true
 		}
 	}
-
 	ss.lk.Lock()
 	defer ss.lk.Unlock()
-	ss.addrs = naddr
-	return nil
+	ss.servers = nsrv
 }
 
 func (ss *ServerList) Sharding() bool {
 	return ss.sharding
 }
 
-func (ss *ServerList) PickServer(key string) (addr net.Addr, err error) {
+func (ss *ServerList) PickServer(key string) (srv ServerInfo, err error) {
 	ss.lk.RLock()
 	defer ss.lk.RUnlock()
-	if len(ss.addrs) == 0 {
+	if len(ss.servers) == 0 {
 		err = ErrNoServers
 		return
 	}
 	if key == "" {
-		addr = ss.addrs[0]
+		srv = ss.servers[0]
 	} else {
-		addr = ss.addrs[crc32.ChecksumIEEE([]byte(key))%uint32(len(ss.addrs))]
+		srv = ss.servers[crc32.ChecksumIEEE([]byte(key))%uint32(len(ss.servers))]
 	}
 	return
 }

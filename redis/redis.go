@@ -33,32 +33,11 @@ import (
 )
 
 var (
-	// ErrCacheMiss means that a Get failed because the item wasn't present.
-	ErrCacheMiss = errors.New("memcache: cache miss")
-
-	// ErrCASConflict means that a CompareAndSwap call failed due to the
-	// cached value being modified between the Get and the CompareAndSwap.
-	// If the cached value was simply evicted rather than replaced,
-	// ErrNotStored will be returned instead.
-	ErrCASConflict = errors.New("memcache: compare-and-swap conflict")
-
-	// ErrNotStored means that a conditional write operation (i.e. Add or
-	// CompareAndSwap) failed because the condition was not satisfied.
-	ErrNotStored = errors.New("memcache: item not stored")
+	// ErrNoServers is returned when no servers are configured or available.
+	ErrNoServers = errors.New("redis: no servers configured or available")
 
 	// ErrServer means that a server error occurred.
-	ErrServerError = errors.New("memcache: server error")
-
-	// ErrNoStats means that no statistics were available.
-	ErrNoStats = errors.New("memcache: no statistics available")
-
-	// ErrMalformedKey is returned when an invalid key is used.
-	// Keys must be at maximum 250 bytes long, ASCII, and not
-	// contain whitespace or control characters.
-	ErrMalformedKey = errors.New("malformed: key is too long or contains invalid characters")
-
-	// ErrNoServers is returned when no servers are configured or available.
-	ErrNoServers = errors.New("memcache: no servers configured or available")
+	ErrServerError = errors.New("redis: server error")
 
 	// ErrTimedOut is returned when a Read or Write operation times out
 	ErrTimedOut = errors.New("redis: timed out")
@@ -71,18 +50,6 @@ const (
 	buffered            = 8 // arbitrary buffered channel size, for readability
 	maxIdleConnsPerAddr = 2 // TODO(bradfitz): make this configurable?
 )
-
-// resumableError returns true if err is only a protocol-level cache error.
-// This is used to determine whether or not a server connection should
-// be re-used or not. If an error occurs, by default we don't reuse the
-// connection, unless it was just a cache error.
-func resumableError(err error) bool {
-	switch err {
-	case ErrCacheMiss, ErrCASConflict, ErrNotStored, ErrMalformedKey:
-		return true
-	}
-	return false
-}
 
 func legalKey(key string) bool {
 	if len(key) > 250 {
@@ -108,9 +75,15 @@ var (
 	resultClientErrorPrefix = []byte("CLIENT_ERROR ")
 )
 
-// New returns a memcache client using the provided server(s)
-// with equal weight. If a server is listed multiple times,
-// it gets a proportional amount of weight.
+// New returns a redis client using the provided server(s) with equal weight.
+// If a server is listed multiple times, it gets a proportional amount of
+// weight.
+//
+// New supports ip:port, unix:/path, and optional db=N and passwd=PWD.
+//
+// Example:
+//
+//	rc := redis.New("ip:port db=N passwd=foobared")
 func New(server ...string) *Client {
 	ss := new(ServerList)
 	ss.SetServers(server...)
@@ -122,7 +95,7 @@ func NewFromSelector(ss ServerSelector) *Client {
 	return &Client{selector: ss}
 }
 
-// Client is a memcache client.
+// Client is a redis client.
 // It is safe for unlocked use by multiple concurrent goroutines.
 type Client struct {
 	// Timeout specifies the socket read/write timeout.
@@ -137,15 +110,15 @@ type Client struct {
 
 // conn is a connection to a server.
 type conn struct {
-	nc   net.Conn
-	rw   *bufio.ReadWriter
-	addr net.Addr
-	c    *Client
+	nc  net.Conn
+	rw  *bufio.ReadWriter
+	srv ServerInfo
+	c   *Client
 }
 
 // release returns this connection back to the client's free pool
 func (cn *conn) release() {
-	cn.c.putFreeConn(cn.addr, cn)
+	cn.c.putFreeConn(cn.srv.Addr, cn)
 }
 
 func (cn *conn) extendDeadline() {
@@ -157,7 +130,7 @@ func (cn *conn) extendDeadline() {
 // cache miss).  The purpose is to not recycle TCP connections that
 // are bad.
 func (cn *conn) condRelease(err *error) {
-	if *err == nil || resumableError(*err) {
+	if *err == nil {
 		cn.release()
 	} else {
 		cn.nc.Close()
@@ -178,18 +151,18 @@ func (c *Client) putFreeConn(addr net.Addr, cn *conn) {
 	c.freeconn[addr] = append(freelist, cn)
 }
 
-func (c *Client) getFreeConn(addr net.Addr) (cn *conn, ok bool) {
+func (c *Client) getFreeConn(srv ServerInfo) (cn *conn, ok bool) {
 	c.lk.Lock()
 	defer c.lk.Unlock()
 	if c.freeconn == nil {
 		return nil, false
 	}
-	freelist, ok := c.freeconn[addr]
+	freelist, ok := c.freeconn[srv.Addr]
 	if !ok || len(freelist) == 0 {
 		return nil, false
 	}
 	cn = freelist[len(freelist)-1]
-	c.freeconn[addr] = freelist[:len(freelist)-1]
+	c.freeconn[srv.Addr] = freelist[:len(freelist)-1]
 	return cn, true
 }
 
@@ -208,7 +181,7 @@ type ConnectTimeoutError struct {
 }
 
 func (cte *ConnectTimeoutError) Error() string {
-	return "memcache: connect timeout to " + cte.Addr.String()
+	return "redis: connect timeout to " + cte.Addr.String()
 }
 
 func (c *Client) dial(addr net.Addr) (net.Conn, error) {
@@ -237,23 +210,35 @@ func (c *Client) dial(addr net.Addr) (net.Conn, error) {
 	return nil, &ConnectTimeoutError{addr}
 }
 
-func (c *Client) getConn(addr net.Addr) (*conn, error) {
-	cn, ok := c.getFreeConn(addr)
+func (c *Client) getConn(srv ServerInfo) (*conn, error) {
+	cn, ok := c.getFreeConn(srv)
 	if ok {
 		cn.extendDeadline()
 		return cn, nil
 	}
-	nc, err := c.dial(addr)
+	nc, err := c.dial(srv.Addr)
 	if err != nil {
 		return nil, err
 	}
 	cn = &conn{
-		nc:   nc,
-		addr: addr,
-		rw:   bufio.NewReadWriter(bufio.NewReader(nc), bufio.NewWriter(nc)),
-		c:    c,
+		nc:  nc,
+		srv: srv,
+		rw:  bufio.NewReadWriter(bufio.NewReader(nc), bufio.NewWriter(nc)),
+		c:   c,
 	}
 	cn.extendDeadline()
+	if srv.Passwd != "" {
+		_, err := c.execute(true, cn.rw, "AUTH", srv.Passwd)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if srv.DB != "" {
+		_, err := c.execute(false, cn.rw, "SELECT", srv.DB)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return cn, nil
 }
 
@@ -261,12 +246,12 @@ func (c *Client) getConn(addr net.Addr) (*conn, error) {
 
 // execWithKey picks a server based on the key, and executes a command in redis.
 func (c *Client) execWithKey(urp bool, cmd, key string, a ...string) (v interface{}, err error) {
-	addr, err := c.selector.PickServer(key)
+	srv, err := c.selector.PickServer(key)
 	if err != nil {
 		return
 	}
 	x := []string{cmd, key}
-	return c.execWithAddr(urp, addr, append(x, a...)...)
+	return c.execWithAddr(urp, srv, append(x, a...)...)
 }
 
 // execWithKeys calls execWithKey for each key, returns an array of results.
@@ -287,16 +272,16 @@ func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) 
 // execOnFirst executes a command on the first listed server.
 // execOnFirst is used by commands that are not bound to a key. e.g.: ping, info
 func (c *Client) execOnFirst(urp bool, a ...string) (interface{}, error) {
-	addr, err := c.selector.PickServer("")
+	srv, err := c.selector.PickServer("")
 	if err != nil {
 		return nil, err
 	}
-	return c.execWithAddr(urp, addr, a...)
+	return c.execWithAddr(urp, srv, a...)
 }
 
 // execWithAddr executes a command in a specific redis server.
-func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface{}, err error) {
-	cn, err := c.getConn(addr)
+func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...string) (v interface{}, err error) {
+	cn, err := c.getConn(srv)
 	if err != nil {
 		return
 	}
@@ -305,7 +290,7 @@ func (c *Client) execWithAddr(urp bool, addr net.Addr, a ...string) (v interface
 }
 
 // execute sends a command to redis, then reads and parses the response.
-// execute uses the old protocol, unless urp is true (Unified Request Protocol).
+// execute uses the old protocol, unless urp is true (Unified Request Protocol)
 func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
 	//fmt.Printf("\nSending: %#v\n", a)
 	if urp {
