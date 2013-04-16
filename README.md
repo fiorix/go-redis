@@ -8,6 +8,9 @@ go-redis
 [Go](http://golang.org) programming language. It's built on the skeleton of
 Brad Fitz's [gomemcache](http://github.com/bradfitz/gomemcache) library.
 
+``go-redis`` is licensed under the Apache License, Version 2.0.
+
+
 *THIS IS A WORK IN PROGRESS, USE AT YOUR OWN RISK*
 
 
@@ -56,6 +59,5 @@ Thanks to (in no particular order):
 
 - [gomemcache](https://github.com/bradfitz/gomemcache): for the skeleton of
 this client library.
-
 - [txredisapi](https://github.com/fiorix/txredisapi): for the experience in
 writing redis client libraries over the years.
