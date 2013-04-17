@@ -16,12 +16,14 @@ the [gomemcache](http://github.com/bradfitz/gomemcache) library.
 *THIS IS A WORK IN PROGRESS, USE AT YOUR OWN RISK*
 
 
-## Installing
+Installing
+----------
 
 	$ go get github.com/fiorix/go-redis
 
 
-## Usage
+Usage
+-----
 
 	import "github.com/fiorix/go-redis"
 
@@ -55,7 +57,8 @@ Database ID and password can only be set by ``New()`` and can't be
 changed later. If that is required, make new connections to the server.
 
 
-## Credits
+Credits
+-------
 
 Thanks to (in no particular order):
 
