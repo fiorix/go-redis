@@ -659,53 +659,51 @@ func BenchmarkIncrBy(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		v, err := rc.IncrBy("call_me_maybe", 1)
+		_, err := rc.IncrBy("call_me_maybe", 1)
 		if err != nil {
 			b.Error(err)
 			return
 		}
-		fmt.Printf("current value: %d", v)
 	}
 
-	v, err := rc.Get("foo")
+	v, err := rc.Get("call_me_maybe")
 	if err != nil {
 		b.Error(err)
 		return
 	}
 
-	if v != strconv.Itoa(b.N) {
+	s := strconv.Itoa(b.N)
+
+	if v != s {
 		b.Error("wrong incr result")
 		return
 	}
-	b.Error("here's my number, call me maybe %s", v)
 }
 
 // Benchmark DECR
 func BenchmarkDecrBy(b *testing.B) {
-	err := rc.Set("call_me_maybe", "10")
+	err := rc.Set("call_me_maybe", strconv.Itoa(b.N))
 	if err != nil {
 		b.Error(err)
 		return
 	}
 
 	for i := 0; i < b.N; i++ {
-		v, err := rc.DecrBy("call_me_maybe", 1)
+		_, err := rc.DecrBy("call_me_maybe", 1)
 		if err != nil {
 			b.Error(err)
 			return
 		}
-		fmt.Printf("current value: %d", v)
 	}
 
-	v, err := rc.Get("foo")
+	v, err := rc.Get("call_me_maybe")
 	if err != nil {
 		b.Error(err)
 		return
 	}
 
-	if v != strconv.Itoa(b.N) {
+	if v != "0" {
 		b.Error("wrong decr result")
 		return
 	}
-	b.Error("here's my number, call me maybe %s", v)
 }
