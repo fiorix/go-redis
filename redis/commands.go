@@ -555,6 +555,32 @@ func (c *Client) GetBit(key string, offset int) (int, error) {
 
 // WIP
 
+// http://redis.io/commands/incr
+func (c *Client) Incr(key string) (int, error) {
+	n, err := c.execWithKey(true, "INCR", key)
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// http://redis.io/commands/incrby
+func (c *Client) IncrBy(key string, decrement int) (int, error) {
+	n, err := c.execWithKey(true, "INCRBY", key, fmt.Sprintf("%d", decrement))
+	if err != nil {
+		return 0, err
+	}
+	switch n.(type) {
+	case int:
+		return n.(int), nil
+	}
+	return 0, ErrServerError
+}
+
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
 // TODO: fix
@@ -702,51 +728,5 @@ func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
 		}
 	}
 	return m, err
-}
-*/
-
-// Increment atomically increments key by delta. The return value is
-// the new value after being incremented or an error. If the value
-// didn't exist in memcached the error is ErrCacheMiss. The value in
-// memcached must be an decimal number, or an error will be returned.
-// On 64-bit overflow, the new value wraps around.
-/*
-func (c *Client) Increment(key string, delta uint64) (newValue uint64, err error) {
-	return c.incrDecr("incr", key, delta)
-}
-*/
-
-// Decrement atomically decrements key by delta. The return value is
-// the new value after being decremented or an error. If the value
-// didn't exist in memcached the error is ErrCacheMiss. The value in
-// memcached must be an decimal number, or an error will be returned.
-// On underflow, the new value is capped at zero and does not wrap
-// around.
-/*
-func (c *Client) Decrement(key string, delta uint64) (newValue uint64, err error) {
-	return c.incrDecr("decr", key, delta)
-}
-
-func (c *Client) incrDecr(verb, key string, delta uint64) (uint64, error) {
-	var val uint64
-	err := c.withKeyRw(key, func(rw *bufio.ReadWriter) error {
-		line, err := writeReadLine(rw, "%s %s %d\r\n", verb, key, delta)
-		if err != nil {
-			return err
-		}
-		switch {
-		case bytes.Equal(line, resultNotFound):
-			return ErrCacheMiss
-		case bytes.HasPrefix(line, resultClientErrorPrefix):
-			errMsg := line[len(resultClientErrorPrefix) : len(line)-2]
-			return errors.New("memcache: client error: " + string(errMsg))
-		}
-		val, err = strconv.ParseUint(string(line[:len(line)-2]), 10, 64)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return val, err
 }
 */
