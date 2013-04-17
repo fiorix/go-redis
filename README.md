@@ -19,11 +19,15 @@ the [gomemcache](http://github.com/bradfitz/gomemcache) library.
 Installing
 ----------
 
+Make sure $GOPATH is set and use ``go get`` to install.
+
 	$ go get github.com/fiorix/go-redis
 
 
 Usage
 -----
+
+Hello world:
 
 	import "github.com/fiorix/go-redis"
 
