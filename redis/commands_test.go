@@ -327,6 +327,32 @@ func TestDecrBy(t *testing.T) {
 	rc.Del("mykey")
 }
 
+// TestIncr reproduces the example from http://redis.io/commands/incr.
+func TestIncr(t *testing.T) {
+	rc.Del("mykey")
+	rc.Set("mykey", "0")
+	n, err := rc.Incr("mykey")
+	if err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 1 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
+}
+
+// TestIncrBy reproduces the example from http://redis.io/commands/incrby.
+func TestIncrBy(t *testing.T) {
+	rc.Del("mykey")
+	rc.Set("mykey", "0")
+	n, err := rc.IncrBy("mykey", 5)
+	if err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 5 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
+}
+
 // TestDel creates 1024 keys and deletes them.
 func TestDel(t *testing.T) {
 	keys := make([]string, 1024)
