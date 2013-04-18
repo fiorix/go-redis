@@ -35,50 +35,37 @@ package redis
 // 🍺
 
 import (
-	"fmt"
 	"strings"
 	"time"
 )
 
 // http://redis.io/commands/append
 func (c *Client) Append(key, value string) (int, error) {
-	n, err := c.execWithKey(true, "append", key, value)
+	v, err := c.execWithKey(true, "append", key, value)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/bgrewriteaof
 // BgRewriteAOF is not fully supported on sharded connections.
 func (c *Client) BgRewriteAOF() (string, error) {
-	status, err := c.execOnFirst(false, "BGREWRITEAOF")
+	v, err := c.execOnFirst(false, "BGREWRITEAOF")
 	if err != nil {
 		return "", err
 	}
-	switch status.(type) {
-	case string:
-		return status.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/bgsave
 // BgSave is not fully supported on sharded connections.
 func (c *Client) BgSave() (string, error) {
-	status, err := c.execOnFirst(false, "BGSAVE")
+	v, err := c.execOnFirst(false, "BGSAVE")
 	if err != nil {
 		return "", err
 	}
-	switch status.(type) {
-	case string:
-		return status.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/bitcount
@@ -86,64 +73,55 @@ func (c *Client) BgSave() (string, error) {
 func (c *Client) BitCount(key string, start, end int) (int, error) {
 	// TODO: move int convertions to .execute (it should take interface{})
 	var (
-		n   interface{}
+		v   interface{}
 		err error
 	)
 	if start > -1 {
-		n, err = c.execWithKey(true, "BITCOUNT", key,
-			fmt.Sprintf("%d", start), fmt.Sprintf("%d", end))
+		v, err = c.execWithKey(true, "BITCOUNT", key, start, end)
 	} else {
-		n, err = c.execWithKey(true, "BITCOUNT", key)
+		v, err = c.execWithKey(true, "BITCOUNT", key)
 	}
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/bitop
 // BitOp is not fully supported on sharded connections.
 func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, error) {
-	a := []string{"BITOP", operation, destkey, key}
-	n, err := c.execOnFirst(true, append(a, keys...)...)
+	a := append([]string{"BITOP", operation, destkey, key}, keys...)
+	v, err := c.execOnFirst(true, vstr2iface(a)...)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // blbrPop supports both BLPop and BRPop.
 func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, err error) {
 	t := c.Timeout
-	keys = append(keys, fmt.Sprintf("%d", timeout))
-	var resp interface{}
 	// Extend the client's timeout for this operation only.
 	// TODO: make sure it does not affect other concurrent calls.
-	if t != 0 {
-		c.Timeout = time.Duration(timeout) + t
-	} else {
+	if t == 0 {
 		c.Timeout = time.Duration(timeout) + DefaultTimeout
+	} else {
+		c.Timeout = time.Duration(timeout) + t
 	}
-	resp, err = c.execWithKey(true, cmd, keys[0], keys[1:]...)
+	var r interface{}
+	r, err = c.execWithKey(true, cmd, keys[0],
+		append(vstr2iface(keys[1:]), timeout)...)
 	c.Timeout = t
 	if err != nil {
 		return
 	}
-	if resp == nil {
+	if r == nil {
 		err = ErrTimedOut
 		return
 	}
-	switch resp.(type) {
+	switch r.(type) {
 	case []interface{}:
-		items := resp.([]interface{})
+		items := r.([]interface{})
 		if len(items) != 2 {
 			err = ErrServerError
 			return
@@ -175,35 +153,29 @@ func (c *Client) BRPopLPush(src, dst string, timeout int) (string, error) {
 	t := c.Timeout
 	// Extend the client's timeout for this operation only.
 	// TODO: make sure it does not affect other concurrent calls.
-	if t != 0 {
-		c.Timeout = time.Duration(timeout)*time.Second + t
-	} else {
+	if t == 0 {
 		c.Timeout = time.Duration(timeout)*time.Second + DefaultTimeout
+	} else {
+		c.Timeout = time.Duration(timeout)*time.Second + t
 	}
-	resp, err := c.execWithKey(true, "BRPOPLPUSH", src,
-		[]string{dst, fmt.Sprintf("%d", timeout)}...)
+	v, err := c.execWithKey(true, "BRPOPLPUSH", src, dst, timeout)
 	c.Timeout = t
 	if err != nil {
 		return "", err
-	}
-	if resp == nil {
+	} else if v == nil {
 		return "", ErrTimedOut
 	}
-	switch resp.(type) {
-	case string:
-		return resp.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/client-kill
 // ClientKill is not fully supported on sharded connections.
 func (c *Client) ClientKill(kill_addr string) error {
-	ok, err := c.execOnFirst(false, "CLIENT KILL", kill_addr)
+	v, err := c.execOnFirst(false, "CLIENT KILL", kill_addr)
 	if err != nil {
 		return err
 	}
-	switch ok.(type) {
+	switch v.(type) {
 	case string:
 		return nil
 	}
@@ -213,13 +185,13 @@ func (c *Client) ClientKill(kill_addr string) error {
 // http://redis.io/commands/client-list
 // ClientList is not fully supported on sharded connections.
 func (c *Client) ClientList() ([]string, error) {
-	items, err := c.execOnFirst(false, "CLIENT LIST")
+	v, err := c.execOnFirst(false, "CLIENT LIST")
 	if err != nil {
 		return nil, err
 	}
-	switch items.(type) {
+	switch v.(type) {
 	case string:
-		return strings.Split(items.(string), "\n"), nil
+		return strings.Split(v.(string), "\n"), nil
 	}
 	return nil, ErrServerError
 }
@@ -228,11 +200,11 @@ func (c *Client) ClientList() ([]string, error) {
 // ClientSetName is not fully supported on sharded connections, and is useless here.
 // This driver creates connections on demand, thus naming them is pointless.
 func (c *Client) ClientSetName(name string) error {
-	ok, err := c.execOnFirst(false, "CLIENT SETNAME", name)
+	v, err := c.execOnFirst(false, "CLIENT SETNAME", name)
 	if err != nil {
 		return err
 	}
-	switch ok.(type) {
+	switch v.(type) {
 	case string:
 		return nil
 	}
@@ -242,14 +214,14 @@ func (c *Client) ClientSetName(name string) error {
 // http://redis.io/commands/config-get
 // ConfigGet is not fully supported on sharded connections.
 func (c *Client) ConfigGet(name string) (map[string]string, error) {
-	resp, err := c.execOnFirst(false, "CONFIG GET", name)
+	r, err := c.execOnFirst(false, "CONFIG GET", name)
 	if err != nil {
 		return nil, err
 	}
 	var items []interface{}
-	switch resp.(type) {
+	switch r.(type) {
 	case []interface{}:
-		items = resp.([]interface{})
+		items = r.([]interface{})
 	default:
 		return nil, ErrServerError
 	}
@@ -276,11 +248,11 @@ func (c *Client) ConfigGet(name string) (map[string]string, error) {
 // http://redis.io/commands/config-set
 // ConfigSet is not fully supported on sharded connections.
 func (c *Client) ConfigSet(name, value string) error {
-	ok, err := c.execOnFirst(false, "CONFIG SET", name, value)
+	v, err := c.execOnFirst(false, "CONFIG SET", name, value)
 	if err != nil {
 		return err
 	}
-	switch ok.(type) {
+	switch v.(type) {
 	case string:
 		return nil
 	}
@@ -290,11 +262,11 @@ func (c *Client) ConfigSet(name, value string) error {
 // http://redis.io/commands/config-resetstat
 // ConfigResetStat is not fully supported on sharded connections.
 func (c *Client) ConfigResetStat() error {
-	ok, err := c.execOnFirst(false, "CONFIG RESETSTAT")
+	v, err := c.execOnFirst(false, "CONFIG RESETSTAT")
 	if err != nil {
 		return err
 	}
-	switch ok.(type) {
+	switch v.(type) {
 	case string:
 		return nil
 	}
@@ -304,25 +276,21 @@ func (c *Client) ConfigResetStat() error {
 // http://redis.io/commands/dbsize
 // DBSize is not fully supported on sharded connections.
 func (c *Client) DBSize() (int, error) {
-	size, err := c.execOnFirst(false, "DBSIZE")
+	v, err := c.execOnFirst(false, "DBSIZE")
 	if err != nil {
 		return 0, err
 	}
-	switch size.(type) {
-	case int:
-		return size.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/debug-segfault
 // DebugSegfault is not fully supported on sharded connections.
 func (c *Client) DebugSegfault() error {
-	ok, err := c.execOnFirst(false, "DEBUG SEGFAULT")
+	v, err := c.execOnFirst(false, "DEBUG SEGFAULT")
 	if err != nil {
 		return err
 	}
-	switch ok.(type) {
+	switch v.(type) {
 	case string:
 		return nil
 	}
@@ -331,28 +299,20 @@ func (c *Client) DebugSegfault() error {
 
 // http://redis.io/commands/decr
 func (c *Client) Decr(key string) (int, error) {
-	n, err := c.execWithKey(true, "DECR", key)
+	v, err := c.execWithKey(true, "DECR", key)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/decrby
 func (c *Client) DecrBy(key string, decrement int) (int, error) {
-	n, err := c.execWithKey(true, "DECRBY", key, fmt.Sprintf("%d", decrement))
+	v, err := c.execWithKey(true, "DECRBY", key, decrement)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/del
@@ -381,15 +341,11 @@ func (c *Client) delMulti(keys ...string) (int, error) {
 }
 
 func (c *Client) delPlain(keys ...string) (int, error) {
-	n, err := c.execWithKey(true, "DEL", keys[0], keys[1:]...)
+	v, err := c.execWithKey(true, "DEL", keys[0], vstr2iface(keys[1:])...)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/discard
@@ -401,11 +357,7 @@ func (c *Client) Dump(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	switch v.(type) {
-	case string:
-		return v.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/echo
@@ -415,45 +367,41 @@ func (c *Client) Echo(message string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	switch v.(type) {
-	case string:
-		return v.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/eval
 // Eval is not fully supported on sharded connections.
 func (c *Client) Eval(script string, numkeys int, keys []string, args []string) (interface{}, error) {
-	a := []string{
+	a := []interface{}{
 		"EVAL",
 		script, // escape?
-		fmt.Sprintf("%d", numkeys),
+		numkeys,
 		strings.Join(keys, " "),
 		strings.Join(args, " "),
 	}
-	resp, err := c.execOnFirst(true, a...)
+	v, err := c.execOnFirst(true, a...)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return v, nil
 }
 
 // http://redis.io/commands/evalsha
 // EvalSha is not fully supported on sharded connections.
 func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string) (interface{}, error) {
-	a := []string{
+	a := []interface{}{
 		"EVALSHA",
 		sha1,
-		fmt.Sprintf("%d", numkeys),
+		numkeys,
 		strings.Join(keys, " "),
 		strings.Join(args, " "),
 	}
-	resp, err := c.execOnFirst(true, a...)
+	v, err := c.execOnFirst(true, a...)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return v, nil
 }
 
 // http://redis.io/commands/exec
@@ -461,56 +409,32 @@ func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string)
 
 // http://redis.io/commands/exists
 func (c *Client) Exists(key string) (bool, error) {
-	n, err := c.execWithKey(true, "EXISTS", key)
+	v, err := c.execWithKey(true, "EXISTS", key)
 	if err != nil {
 		return false, err
 	}
-	switch n.(type) {
-	case int:
-		if n.(int) == 1 {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	}
-	return false, ErrServerError
+	return iface2bool(v)
 }
 
 // http://redis.io/commands/expire
 // Expire returns true if the timeout was set, or false if key does not exist
 // or the timeout could not be set.
 func (c *Client) Expire(key string, seconds int) (bool, error) {
-	n, err := c.execWithKey(true, "EXPIRE", key, fmt.Sprintf("%d", seconds))
+	v, err := c.execWithKey(true, "EXPIRE", key, seconds)
 	if err != nil {
 		return false, err
 	}
-	switch n.(type) {
-	case int:
-		if n.(int) == 1 {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	}
-	return false, ErrServerError
+	return iface2bool(v)
 }
 
 // http://redis.io/commands/expireat
 // ExpireAt returns like Expire.
 func (c *Client) ExpireAt(key string, timestamp int) (bool, error) {
-	n, err := c.execWithKey(true, "EXPIREAT", key, fmt.Sprintf("%d", timestamp))
+	v, err := c.execWithKey(true, "EXPIREAT", key, timestamp)
 	if err != nil {
 		return false, err
 	}
-	switch n.(type) {
-	case int:
-		if n.(int) == 1 {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	}
-	return false, ErrServerError
+	return iface2bool(v)
 }
 
 // http://redis.io/commands/flushall
@@ -533,6 +457,24 @@ func (c *Client) Get(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return iface2str(v)
+}
+
+// http://redis.io/commands/getbit
+func (c *Client) GetBit(key string, offset int) (int, error) {
+	v, err := c.execWithKey(true, "GETBIT", key, offset)
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/getrange
+func (c *Client) GetRange(key string, start, end int) (string, error) {
+	v, err := c.execWithKey(true, "GETRANGE", key, start, end)
+	if err != nil {
+		return "", err
+	}
 	switch v.(type) {
 	case string:
 		return v.(string), nil
@@ -540,52 +482,40 @@ func (c *Client) Get(key string) (string, error) {
 	return "", ErrServerError
 }
 
-// http://redis.io/commands/getbit
-func (c *Client) GetBit(key string, offset int) (int, error) {
-	v, err := c.execWithKey(true, "GETBIT", key, fmt.Sprintf("%d", offset))
+// http://redis.io/commands/getset
+func (c *Client) GetSet(key, value string) (string, error) {
+	v, err := c.execWithKey(true, "GETSET", key, value)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
-	switch v.(type) {
-	case int:
-		return v.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2str(v)
 }
 
 // WIP
 
 // http://redis.io/commands/incr
 func (c *Client) Incr(key string) (int, error) {
-	n, err := c.execWithKey(true, "INCR", key)
+	v, err := c.execWithKey(true, "INCR", key)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/incrby
-func (c *Client) IncrBy(key string, decrement int) (int, error) {
-	n, err := c.execWithKey(true, "INCRBY", key, fmt.Sprintf("%d", decrement))
+func (c *Client) IncrBy(key string, increment int) (int, error) {
+	v, err := c.execWithKey(true, "INCRBY", key, increment)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
 // TODO: fix
 func (c *Client) MGet(keys ...string) ([]string, error) {
-	tmp := make([]string, len(keys)+1)
+	tmp := make([]interface{}, len(keys)+1)
 	tmp[0] = "MGET"
 	for n, k := range keys {
 		tmp[n+1] = k
@@ -613,7 +543,7 @@ func (c *Client) MGet(keys ...string) ([]string, error) {
 // MSet is not fully supported on sharded connections.
 // TODO: fix
 func (c *Client) MSet(items map[string]string) error {
-	tmp := make([]string, (len(items)*2)+1)
+	tmp := make([]interface{}, (len(items)*2)+1)
 	tmp[0] = "MSET"
 	idx := 0
 	for k, v := range items {
@@ -631,15 +561,11 @@ func (c *Client) MSet(items map[string]string) error {
 
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
-	n, err := c.execWithKey(true, "RPUSH", key, values...)
+	v, err := c.execWithKey(true, "RPUSH", key, vstr2iface(values)...)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/script-load
@@ -648,11 +574,7 @@ func (c *Client) ScriptLoad(script string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	switch v.(type) {
-	case string:
-		return v.(string), nil
-	}
-	return "", ErrServerError
+	return iface2str(v)
 }
 
 // http://redis.io/commands/set
@@ -663,29 +585,20 @@ func (c *Client) Set(key, value string) (err error) {
 
 // http://redis.io/commands/setbit
 func (c *Client) SetBit(key string, offset, value int) (int, error) {
-	v, err := c.execWithKey(true, "SETBIT", key,
-		fmt.Sprintf("%d", offset), fmt.Sprintf("%d", value))
+	v, err := c.execWithKey(true, "SETBIT", key, offset, value)
 	if err != nil {
 		return 0, err
 	}
-	switch v.(type) {
-	case int:
-		return v.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // http://redis.io/commands/ttl
 func (c *Client) TTL(key string) (int, error) {
-	n, err := c.execWithKey(true, "TTL", key)
+	v, err := c.execWithKey(true, "TTL", key)
 	if err != nil {
 		return 0, err
 	}
-	switch n.(type) {
-	case int:
-		return n.(int), nil
-	}
-	return 0, ErrServerError
+	return iface2int(v)
 }
 
 // GetMulti is a batch version of Get. The returned map from keys to
