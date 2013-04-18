@@ -55,13 +55,11 @@ func errUnexpected(msg interface{}) string {
 // TestAppend appends " World" to "Hello" and expects the lenght to be 11.
 func TestAppend(t *testing.T) {
 	defer func() { rc.Del("foobar") }()
-	n, err := rc.Append("foobar", "Hello")
-	if err != nil {
+	if _, err := rc.Append("foobar", "Hello"); err != nil {
 		t.Error(err)
 		return
 	}
-	n, err = rc.Append("foobar", " World")
-	if err != nil {
+	if n, err := rc.Append("foobar", " World"); err != nil {
 		t.Error(err)
 	} else if n != 11 {
 		t.Error(errUnexpected(n))
@@ -70,8 +68,7 @@ func TestAppend(t *testing.T) {
 
 // TestBgRewriteAOF starts an Append Only File rewrite process.
 func __TestBgRewriteAOF(t *testing.T) {
-	status, err := rc.BgRewriteAOF()
-	if err != nil {
+	if status, err := rc.BgRewriteAOF(); err != nil {
 		t.Error(err)
 	} else if status != "Background append only file rewriting started" {
 		t.Error(errUnexpected(status))
@@ -80,8 +77,7 @@ func __TestBgRewriteAOF(t *testing.T) {
 
 // TestBgSave saves the DB in background.
 func __TestBgSave(t *testing.T) {
-	status, err := rc.BgSave()
-	if err != nil {
+	if status, err := rc.BgSave(); err != nil {
 		t.Error(err)
 	} else if status != "Background saving started" {
 		t.Error(errUnexpected(status))
@@ -91,13 +87,11 @@ func __TestBgSave(t *testing.T) {
 // TestBitCount reproduces the example from http://redis.io/commands/bitcount.
 func TestBitCount(t *testing.T) {
 	defer func() { rc.Del("mykey") }()
-	err := rc.Set("mykey", "foobar")
-	if err != nil {
+	if err := rc.Set("mykey", "foobar"); err != nil {
 		t.Error(err)
 		return
 	}
-	n, err := rc.BitCount("mykey", -1, -1)
-	if err != nil {
+	if n, err := rc.BitCount("mykey", -1, -1); err != nil {
 		t.Error(err)
 	} else if n != 26 {
 		t.Error(errUnexpected(n))
@@ -107,18 +101,15 @@ func TestBitCount(t *testing.T) {
 // TestBitOp reproduces the example from http://redis.io/commands/bitop.
 func TestBitOp(t *testing.T) {
 	defer func() { rc.Del("key1", "key2") }()
-	err := rc.Set("key1", "foobar")
-	if err != nil {
+	if err := rc.Set("key1", "foobar"); err != nil {
 		t.Error(err)
 		return
 	}
-	err = rc.Set("key2", "abcdef")
-	if err != nil {
+	if err := rc.Set("key2", "abcdef"); err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = rc.BitOp("and", "dest", "key1", "key2")
-	if err != nil {
+	if _, err := rc.BitOp("and", "dest", "key1", "key2"); err != nil {
 		t.Error(err)
 	}
 }
@@ -127,8 +118,7 @@ func TestBitOp(t *testing.T) {
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
-	k, v, err := rc.BLPop(0, "list1", "list2")
-	if err != nil {
+	if k, v, err := rc.BLPop(0, "list1", "list2"); err != nil {
 		t.Error(err)
 	} else if k != "list1" || v != "a" {
 		t.Error(errUnexpected("k=" + k + " v=" + v))
@@ -140,8 +130,7 @@ func TestBLPop(t *testing.T) {
 func TestBRPop(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
-	k, v, err := rc.BRPop(0, "list1", "list2")
-	if err != nil {
+	if k, v, err := rc.BRPop(0, "list1", "list2"); err != nil {
 		t.Error(err)
 	} else if k != "list1" || v != "c" {
 		t.Error(errUnexpected("k=" + k + " v=" + v))
@@ -153,8 +142,7 @@ func TestBRPop(t *testing.T) {
 // TestBRPopTimeout also tests BLPop (because both share the same code).
 func TestBRPopTimeout(t *testing.T) {
 	rc.Del("list1", "list2")
-	k, v, err := rc.BRPop(1, "list1", "list2")
-	if err != ErrTimedOut {
+	if k, v, err := rc.BRPop(1, "list1", "list2"); err != ErrTimedOut {
 		if err != nil {
 			t.Error(err)
 		} else {
@@ -168,8 +156,7 @@ func TestBRPopTimeout(t *testing.T) {
 func TestBRPopLPush(t *testing.T) {
 	rc.Del("list1", "list2")
 	rc.RPush("list1", "a", "b", "c")
-	v, err := rc.BRPopLPush("list1", "list2", 0)
-	if err != nil {
+	if v, err := rc.BRPopLPush("list1", "list2", 0); err != nil {
 		t.Error(err)
 	} else if v != "c" {
 		t.Error(errUnexpected("v=" + v))
@@ -180,8 +167,7 @@ func TestBRPopLPush(t *testing.T) {
 // TestBRPopLPushTimeout is the same as TestBRPopLPush, but expects a time out.
 func TestBRPopLPushTimeout(t *testing.T) {
 	rc.Del("list1", "list2")
-	v, err := rc.BRPopLPush("list1", "list2", 1)
-	if err != ErrTimedOut {
+	if v, err := rc.BRPopLPush("list1", "list2", 1); err != ErrTimedOut {
 		if err != nil {
 			t.Error(err)
 		} else {
@@ -193,18 +179,17 @@ func TestBRPopLPushTimeout(t *testing.T) {
 
 // TestClientListKill kills the first connection returned by CLIENT LIST.
 func TestClientListKill(t *testing.T) {
-	clients, err := rc.ClientList()
-	if err != nil {
+	var addr []string
+	if clients, err := rc.ClientList(); err != nil {
 		t.Error(err)
 		return
-	}
-	if len(clients) < 1 {
+	} else if len(clients) < 1 {
 		t.Error(errUnexpected(clients))
 		return
+	} else {
+		addr = strings.Split(clients[0], " ")
 	}
-	addr := strings.Split(clients[0], " ")
-	err = rc.ClientKill(addr[0][5:]) // skip 'addr='
-	if err != nil {
+	if err := rc.ClientKill(addr[0][5:]); err != nil {
 		t.Error(err)
 	}
 	rc.ClientList() // send any cmd to enforce socket shutdown
@@ -212,36 +197,33 @@ func TestClientListKill(t *testing.T) {
 
 // TestClientSetName name the current connection, and looks it up in the list.
 func TestClientSetName(t *testing.T) {
-	err := rc.ClientSetName("bozo")
-	if err != nil {
+	if err := rc.ClientSetName("bozo"); err != nil {
 		t.Error(err)
 		return
 	}
-	clients, err := rc.ClientList()
-	if err != nil {
+	if clients, err := rc.ClientList(); err != nil {
 		t.Error(err)
 		return
-	}
-	if len(clients) < 1 {
+	} else if len(clients) < 1 {
 		t.Error(errUnexpected(clients))
 		return
-	}
-	found := false
-	for _, info := range clients {
-		if strings.Contains(info, " name=bozo ") {
-			found = true
-			break
+	} else {
+		found := false
+		for _, info := range clients {
+			if strings.Contains(info, " name=bozo ") {
+				found = true
+				break
+			}
 		}
-	}
-	if !found {
-		t.Error("Could not find client after SetName")
+		if !found {
+			t.Error("Could not find client after SetName")
+		}
 	}
 }
 
 // TestConfigGet tests the server port number.
 func TestConfigGet(t *testing.T) {
-	items, err := rc.ConfigGet("*")
-	if err != nil {
+	if items, err := rc.ConfigGet("*"); err != nil {
 		t.Error(err)
 	} else if items["port"] != "6379" {
 		t.Error(errUnexpected(items))
@@ -255,21 +237,18 @@ func TestConfigSet(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	err = rc.ConfigSet("dir", "/tmp")
-	if err != nil {
+	if err = rc.ConfigSet("dir", "/tmp"); err != nil {
 		t.Error(err)
 		return
 	}
-	err = rc.ConfigSet("dir", items["dir"])
-	if err != nil {
+	if err := rc.ConfigSet("dir", items["dir"]); err != nil {
 		t.Error(err)
 	}
 }
 
 // TestConfigResetStat resets redis statistics.
 func TestConfigResetStat(t *testing.T) {
-	err := rc.ConfigResetStat()
-	if err != nil {
+	if err := rc.ConfigResetStat(); err != nil {
 		t.Error(err)
 	}
 }
@@ -281,22 +260,18 @@ func TestDBSize(t *testing.T) {
 		t.Error(errUnexpected(err))
 		return
 	}
-	defer func() { rc.Del("test-db-size") }()
 	rc.Set("test-db-size", "zzz")
-	new_size, err := rc.DBSize()
-	if err != nil {
+	if new_size, err := rc.DBSize(); err != nil {
 		t.Error(errUnexpected(err))
-		return
-	}
-	if new_size != size+1 {
+	} else if new_size != size+1 {
 		t.Error(errUnexpected(new_size))
 	}
+	rc.Del("test-db-size")
 }
 
 // TestDebugSegfault crashes redis and breaks everything else.
 func __TestDebugSegfault(t *testing.T) {
-	err := rc.DebugSegfault()
-	if err != nil {
+	if err := rc.DebugSegfault(); err != nil {
 		t.Error(err)
 	}
 }
@@ -305,8 +280,7 @@ func __TestDebugSegfault(t *testing.T) {
 func TestDecr(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "10")
-	n, err := rc.Decr("mykey")
-	if err != nil {
+	if n, err := rc.Decr("mykey"); err != nil {
 		t.Error(errUnexpected(err))
 	} else if n != 9 {
 		t.Error(errUnexpected(n))
@@ -318,8 +292,7 @@ func TestDecr(t *testing.T) {
 func TestDecrBy(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "10")
-	n, err := rc.DecrBy("mykey", 5)
-	if err != nil {
+	if n, err := rc.DecrBy("mykey", 5); err != nil {
 		t.Error(errUnexpected(err))
 	} else if n != 5 {
 		t.Error(errUnexpected(n))
@@ -331,8 +304,7 @@ func TestDecrBy(t *testing.T) {
 func TestIncr(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "0")
-	n, err := rc.Incr("mykey")
-	if err != nil {
+	if n, err := rc.Incr("mykey"); err != nil {
 		t.Error(errUnexpected(err))
 	} else if n != 1 {
 		t.Error(errUnexpected(n))
@@ -344,8 +316,7 @@ func TestIncr(t *testing.T) {
 func TestIncrBy(t *testing.T) {
 	rc.Del("mykey")
 	rc.Set("mykey", "0")
-	n, err := rc.IncrBy("mykey", 5)
-	if err != nil {
+	if n, err := rc.IncrBy("mykey", 5); err != nil {
 		t.Error(errUnexpected(err))
 	} else if n != 5 {
 		t.Error(errUnexpected(n))
@@ -366,8 +337,7 @@ func TestDel(t *testing.T) {
 			keys[n] = k
 		}
 	}
-	deleted, err := rc.Del(keys...)
-	if err != nil {
+	if deleted, err := rc.Del(keys...); err != nil {
 		t.Error(err)
 	} else if deleted != cap(keys) {
 		t.Error(errUnexpected(deleted))
@@ -379,8 +349,7 @@ func TestDel(t *testing.T) {
 // TestDump reproduces the example from http://redis.io/commands/dump.
 func TestDump(t *testing.T) {
 	rc.Set("mykey", "10")
-	v, err := rc.Dump("mykey")
-	if err != nil {
+	if v, err := rc.Dump("mykey"); err != nil {
 		t.Error(err)
 	} else if v != "\u0000\xC0\n\u0006\u0000\xF8r?\xC5\xFB\xFB_(" {
 		t.Error(errUnexpected(v))
@@ -391,8 +360,7 @@ func TestDump(t *testing.T) {
 // TestDump reproduces the example from http://redis.io/commands/echo.
 func TestEcho(t *testing.T) {
 	m := "Hello World!"
-	v, err := rc.Echo(m)
-	if err != nil {
+	if v, err := rc.Echo(m); err != nil {
 		t.Error(err)
 	} else if v != m {
 		t.Error(errUnexpected(v))
@@ -402,15 +370,13 @@ func TestEcho(t *testing.T) {
 // TestEval tests server side Lua script.
 // TODO: fix the response.
 func TestEval(t *testing.T) {
-	_, err := rc.Eval(
+	if _, err := rc.Eval(
 		"return {1,{2,3,'foo'},KEYS[1],KEYS[2],ARGV[1],ARGV[2]}",
 		2, // numkeys
 		[]string{"key1", "key2"},    // keys
 		[]string{"first", "second"}, // args
-	)
-	if err != nil {
+	); err != nil {
 		t.Error(err)
-		return
 	}
 	//fmt.Printf("v=%#v\n", v)
 }
@@ -424,15 +390,13 @@ func TestEvalSha(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = rc.EvalSha(
+	if _, err = rc.EvalSha(
 		sha1, // pre-loaded script
 		2,    // numkeys
 		[]string{"key1", "key2"},    // keys
 		[]string{"first", "second"}, // args
-	)
-	if err != nil {
+	); err != nil {
 		t.Error(err)
-		return
 	}
 	//fmt.Printf("v=%#v\n", v)
 }
@@ -443,25 +407,20 @@ func TestEvalSha(t *testing.T) {
 func TestExists(t *testing.T) {
 	rc.Del("key1", "key2")
 	rc.Set("key1", "Hello")
-	ok, err := rc.Exists("key1")
-	if err != nil {
+	if ok, err := rc.Exists("key1"); err != nil {
 		t.Error(err)
 		return
-	}
-	if !ok {
+	} else if !ok {
 		t.Error(errUnexpected(ok))
 		return
 	}
-	ok, err = rc.Exists("key2")
-	if err != nil {
+	if ok, err := rc.Exists("key2"); err != nil {
 		t.Error(err)
 		return
-	}
-	if ok {
+	} else if ok {
 		t.Error(errUnexpected(ok))
 		return
 	}
-	rc.Del("key1", "key2")
 }
 
 // TestExpire reproduces the example from http://redis.io/commands/expire.
@@ -469,16 +428,14 @@ func TestExists(t *testing.T) {
 func TestExpire(t *testing.T) {
 	defer func() { rc.Del("mykey") }()
 	rc.Set("mykey", "hello")
-	ok, err := rc.Expire("mykey", 10)
-	if err != nil {
+	if ok, err := rc.Expire("mykey", 10); err != nil {
 		t.Error(err)
 		return
 	} else if !ok {
 		t.Error(errUnexpected(ok))
 		return
 	}
-	ttl, err := rc.TTL("mykey")
-	if err != nil {
+	if ttl, err := rc.TTL("mykey"); err != nil {
 		t.Error(err)
 		return
 	} else if ttl != 10 {
@@ -486,8 +443,7 @@ func TestExpire(t *testing.T) {
 		return
 	}
 	rc.Set("mykey", "Hello World")
-	ttl, err = rc.TTL("mykey")
-	if err != nil {
+	if ttl, err := rc.TTL("mykey"); err != nil {
 		t.Error(err)
 	} else if ttl != -1 {
 		t.Error(errUnexpected(ttl))
@@ -498,29 +454,24 @@ func TestExpire(t *testing.T) {
 func TestExpireAt(t *testing.T) {
 	defer func() { rc.Del("mykey") }()
 	rc.Set("mykey", "hello")
-	ok, err := rc.Exists("mykey")
-	if err != nil {
+	if ok, err := rc.Exists("mykey"); err != nil {
 		t.Error(err)
 		return
 	} else if !ok {
 		t.Error(errUnexpected(ok))
 		return
 	}
-	ok, err = rc.ExpireAt("mykey", 1293840000)
-	if err != nil {
+	if ok, err := rc.ExpireAt("mykey", 1293840000); err != nil {
 		t.Error(err)
 		return
 	} else if !ok {
 		t.Error(errUnexpected(ok))
 		return
 	}
-	ok, err = rc.Exists("mykey")
-	if err != nil {
+	if ok, err := rc.Exists("mykey"); err != nil {
 		t.Error(err)
-		return
 	} else if ok {
 		t.Error(errUnexpected(ok))
-		return
 	}
 }
 
@@ -529,8 +480,7 @@ func TestExpireAt(t *testing.T) {
 // TestGet reproduces the example from http://redis.io/commands/get
 func TestGet(t *testing.T) {
 	rc.Del("nonexisting")
-	v, err := rc.Get("nonexisting")
-	if err != nil {
+	if v, err := rc.Get("nonexisting"); err != nil {
 		t.Error(err)
 		return
 	} else if v != "" {
@@ -538,8 +488,7 @@ func TestGet(t *testing.T) {
 		return
 	}
 	rc.Set("mykey", "Hello")
-	v, err = rc.Get("mykey")
-	if err != nil {
+	if v, err := rc.Get("mykey"); err != nil {
 		t.Error(err)
 	} else if v == "" {
 		t.Error(errUnexpected(v))
@@ -550,39 +499,82 @@ func TestGet(t *testing.T) {
 // TestGetBit reproduces the example from http://redis.io/commands/getbit.
 // TestGetBit also tests SetBit.
 func TestGetBit(t *testing.T) {
-	rc.Del("mykey")
-	_, err := rc.SetBit("mykey", 7, 1)
-	if err != nil {
+	defer func() { rc.Del("mykey") }()
+	if _, err := rc.SetBit("mykey", 7, 1); err != nil {
 		t.Error(err)
 		return
 	}
-	v, err := rc.GetBit("mykey", 0)
-	if err != nil {
+	if v, err := rc.GetBit("mykey", 0); err != nil {
 		t.Error(err)
 		return
 	} else if v != 0 {
 		t.Error(errUnexpected(v))
 		return
 	}
-	v, err = rc.GetBit("mykey", 7)
-	if err != nil {
+	if v, err := rc.GetBit("mykey", 7); err != nil {
 		t.Error(err)
 	} else if v != 1 {
 		t.Error(errUnexpected(v))
 	}
-	rc.Del("mykey")
+}
+
+// TestGetRange reproduces the example from http://redis.io/commands/getrange.
+func TestGetRange(t *testing.T) {
+	defer func() { rc.Del("mykey") }()
+	rc.Set("mykey", "This is a string")
+	if v, err := rc.GetRange("mykey", 0, 3); err != nil {
+		t.Error(err)
+		return
+	} else if v != "This" {
+		t.Error(errUnexpected(v))
+		return
+	}
+	if v, err := rc.GetRange("mykey", -3, -1); err != nil {
+		t.Error(err)
+		return
+	} else if v != "ing" {
+		t.Error(errUnexpected(v))
+		return
+	}
+	if v, err := rc.GetRange("mykey", 0, -1); err != nil {
+		t.Error(err)
+		return
+	} else if v != "This is a string" {
+		t.Error(errUnexpected(v))
+		return
+	}
+	if v, err := rc.GetRange("mykey", 10, 100); err != nil {
+		t.Error(err)
+	} else if v != "string" {
+		t.Error(errUnexpected(v))
+	}
+}
+
+// TestGetSet reproduces the example from http://redis.io/commands/getset.
+func TestGetSet(t *testing.T) {
+	rc.Del("mycounter")
+	rc.Incr("mycounter")
+	if v, err := rc.GetSet("mycounter", "0"); err != nil {
+		t.Error(err)
+		return
+	} else if v != "1" {
+		t.Error(errUnexpected(v))
+		return
+	}
+	if v, err := rc.Get("mycounter"); err != nil {
+		t.Error(err)
+	} else if v != "0" {
+		t.Error(errUnexpected(v))
+	}
 }
 
 // TestMGet reproduces the example from http://redis.io/commands/mget.
 func TestMGet(t *testing.T) {
 	rc.Set("key1", "Hello")
 	rc.Set("key2", "World")
-	items, err := rc.MGet("key1", "key2")
-	if err != nil {
+	if items, err := rc.MGet("key1", "key2"); err != nil {
 		t.Error(err)
-		return
-	}
-	if items[0] != "Hello" || items[1] != "World" {
+	} else if items[0] != "Hello" || items[1] != "World" {
 		t.Error(errUnexpected(items))
 	}
 	rc.Del("key1", "key2")
@@ -591,8 +583,9 @@ func TestMGet(t *testing.T) {
 // TestMSet reproduces the example from http://redis.io/commands/mset.
 func TestMSet(t *testing.T) {
 	rc.Del("key1", "key2")
-	err := rc.MSet(map[string]string{"key1": "Hello", "key2": "World"})
-	if err != nil {
+	if err := rc.MSet(map[string]string{
+		"key1": "Hello", "key2": "World",
+	}); err != nil {
 		t.Error(err)
 		return
 	}
@@ -612,12 +605,10 @@ func _TestSetAndGet(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	val, err := rc.Get(k)
-	if err != nil {
+	if val, err := rc.Get(k); err != nil {
 		t.Error(err)
 		return
-	}
-	if val != v {
+	} else if val != v {
 		t.Error(errUnexpected(val))
 	}
 	// try to clean up anyway
@@ -627,8 +618,7 @@ func _TestSetAndGet(t *testing.T) {
 // Benchmark plain Set
 func BenchmarkSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		err := rc.Set("foo", "bar")
-		if err != nil {
+		if err := rc.Set("foo", "bar"); err != nil {
 			b.Error(err)
 			return
 		}
@@ -637,73 +627,55 @@ func BenchmarkSet(b *testing.B) {
 
 // Benchmark plain Get
 func BenchmarkGet(b *testing.B) {
+	rc.Set("foo", "bar")
 	for i := 0; i < b.N; i++ {
-		v, err := rc.Get("foo")
-		if err != nil {
+		if v, err := rc.Get("foo"); err != nil {
 			b.Error(err)
-			return
-		}
-		if v != "bar" {
+			break
+		} else if v != "bar" {
 			b.Error(errUnexpected(v))
-			return
+			break
 		}
 	}
+	rc.Del("foo")
 }
 
 // Test/Benchmark INCRBY
 func BenchmarkIncrBy(b *testing.B) {
-	err := rc.Set("call_me_maybe", "0")
-	if err != nil {
+	if err := rc.Set("foo", "0"); err != nil {
 		b.Error(err)
 		return
 	}
-
+	defer func() { rc.Del("foo") }()
 	for i := 0; i < b.N; i++ {
-		_, err := rc.IncrBy("call_me_maybe", 1)
-		if err != nil {
+		if _, err := rc.IncrBy("foo", 1); err != nil {
 			b.Error(err)
 			return
 		}
 	}
-
-	v, err := rc.Get("call_me_maybe")
-	if err != nil {
+	if v, err := rc.Get("foo"); err != nil {
 		b.Error(err)
-		return
-	}
-
-	s := strconv.Itoa(b.N)
-
-	if v != s {
+	} else if v != strconv.Itoa(b.N) {
 		b.Error("wrong incr result")
-		return
 	}
 }
 
 // Benchmark DECR
 func BenchmarkDecrBy(b *testing.B) {
-	err := rc.Set("call_me_maybe", strconv.Itoa(b.N))
-	if err != nil {
+	if err := rc.Set("foo", strconv.Itoa(b.N)); err != nil {
 		b.Error(err)
 		return
 	}
-
+	defer func() { rc.Del("foo") }()
 	for i := 0; i < b.N; i++ {
-		_, err := rc.DecrBy("call_me_maybe", 1)
-		if err != nil {
+		if _, err := rc.DecrBy("foo", 1); err != nil {
 			b.Error(err)
 			return
 		}
 	}
-
-	v, err := rc.Get("call_me_maybe")
-	if err != nil {
+	if v, err := rc.Get("foo"); err != nil {
 		b.Error(err)
-		return
-	}
-
-	if v != "0" {
+	} else if v != "0" {
 		b.Error("wrong decr result")
-		return
 	}
 }
