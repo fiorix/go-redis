@@ -232,20 +232,58 @@ func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 	return cn, nil
 }
 
-// Redis protocol: http://redis.io/topics/protocol
+// vstr2iface converts an array of strings to an array of empty interfaces
+func vstr2iface(a []string) (r []interface{}) {
+	r = make([]interface{}, len(a))
+	for n, item := range a {
+		r[n] = item
+	}
+	return
+}
+
+// iface2bool validates and converts interface (int) to bool
+func iface2bool(a interface{}) (bool, error) {
+	switch a.(type) {
+	case int:
+		if a.(int) == 1 {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+	return false, ErrServerError
+}
+
+// iface2int validates and converts interface to int
+func iface2int(a interface{}) (int, error) {
+	switch a.(type) {
+	case int:
+		return a.(int), nil
+	}
+	return 0, ErrServerError
+}
+
+// iface2str validates and converts interface to string
+func iface2str(a interface{}) (string, error) {
+	switch a.(type) {
+	case string:
+		return a.(string), nil
+	}
+	return "", ErrServerError
+}
 
 // execWithKey picks a server based on the key, and executes a command in redis.
-func (c *Client) execWithKey(urp bool, cmd, key string, a ...string) (v interface{}, err error) {
+func (c *Client) execWithKey(urp bool, cmd, key string, a ...interface{}) (v interface{}, err error) {
 	srv, err := c.selector.PickServer(key)
 	if err != nil {
 		return
 	}
-	x := []string{cmd, key}
+	x := []interface{}{cmd, key}
 	return c.execWithAddr(urp, srv, append(x, a...)...)
 }
 
 // execWithKeys calls execWithKey for each key, returns an array of results.
-func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) (v interface{}, err error) {
+func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...interface{}) (v interface{}, err error) {
 	var r []interface{}
 	for _, k := range keys {
 		if tmp, e := c.execWithKey(urp, cmd, k, a...); e != nil {
@@ -261,7 +299,7 @@ func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...string) 
 
 // execOnFirst executes a command on the first listed server.
 // execOnFirst is used by commands that are not bound to a key. e.g.: ping, info
-func (c *Client) execOnFirst(urp bool, a ...string) (interface{}, error) {
+func (c *Client) execOnFirst(urp bool, a ...interface{}) (interface{}, error) {
 	srv, err := c.selector.PickServer("")
 	if err != nil {
 		return nil, err
@@ -270,7 +308,7 @@ func (c *Client) execOnFirst(urp bool, a ...string) (interface{}, error) {
 }
 
 // execWithAddr executes a command in a specific redis server.
-func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...string) (v interface{}, err error) {
+func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v interface{}, err error) {
 	cn, err := c.getConn(srv)
 	if err != nil {
 		return
@@ -280,30 +318,41 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...string) (v interfac
 }
 
 // execute sends a command to redis, then reads and parses the response.
-// execute uses the old protocol, unless urp is true (Unified Request Protocol)
-func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...string) (v interface{}, err error) {
+// It uses the old protocol, unless urp (Unified Request Protocol) is true.
+// Redis protocol <http://redis.io/topics/protocol>
+func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...interface{}) (v interface{}, err error) {
 	//fmt.Printf("\nSending: %#v\n", a)
+	s := make([]string, len(a))
+	for n, item := range a {
+		switch item.(type) {
+		case int:
+			s[n] = strconv.Itoa(item.(int))
+		case string:
+			s[n] = item.(string)
+		default:
+			// TODO: panic?
+		}
+	}
 	if urp {
 		// Optional: Unified Request Protocol
 		_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
 		if err != nil {
 			return
 		}
-		for _, item := range a {
-			_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(item), item)
+		for _, i := range s {
+			_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(i), i)
 			if err != nil {
 				return
 			}
 		}
 	} else {
 		// Default: old redis protocol.
-		_, err = fmt.Fprintf(rw, strings.Join(a, " ")+"\r\n")
+		_, err = fmt.Fprintf(rw, strings.Join(s, " ")+"\r\n")
 		if err != nil {
 			return
 		}
 	}
-	err = rw.Flush()
-	if err != nil {
+	if err = rw.Flush(); err != nil {
 		return
 	}
 	return c.parseResponse(rw)
