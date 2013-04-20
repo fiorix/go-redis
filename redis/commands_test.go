@@ -126,6 +126,30 @@ func TestRPush(t *testing.T) {
 	rc.Del("list1")
 }
 
+// Test RPop
+func TestRPop(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c")
+	if v, err := rc.RPop("list1"); err != nil {
+		t.Error(err)
+	} else if v != "c" {
+		t.Error(errUnexpected("v=" + v))
+	}
+	rc.Del("list1")
+}
+
+// Test LPop
+func TestLPop(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c")
+	if v, err := rc.LPop("list1"); err != nil {
+		t.Error(err)
+	} else if v != "a" {
+		t.Error(errUnexpected("v=" + v))
+	}
+	rc.Del("list1")
+}
+
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")

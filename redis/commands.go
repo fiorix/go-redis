@@ -529,6 +529,24 @@ func (c *Client) LIndex(key string, index int) (string, error) {
 	return iface2str(v)
 }
 
+// http://redis.io/commands/lpop
+func (c *Client) LPop(key string) (string, error) {
+	v, err := c.execWithKey(true, "LPOP", key)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
+// http://redis.io/commands/rpop
+func (c *Client) RPop(key string) (string, error) {
+	v, err := c.execWithKey(true, "RPOP", key)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
 // TODO: fix
