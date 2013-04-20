@@ -114,6 +114,18 @@ func TestBitOp(t *testing.T) {
 	}
 }
 
+// TestRPush and LIndex
+func TestRPush(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c")
+	if v, err := rc.LIndex("list1", 1); err != nil {
+		t.Error(err)
+	} else if v != "b" {
+		t.Error(errUnexpected("v=" + v))
+	}
+	rc.Del("list1")
+}
+
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")

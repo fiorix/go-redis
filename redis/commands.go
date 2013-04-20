@@ -511,6 +511,24 @@ func (c *Client) IncrBy(key string, increment int) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/lpush
+func (c *Client) LPush(key string, values ...string) (int, error) {
+	v, err := c.execWithKey(true, "LPUSH", key, vstr2iface(values)...)
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/lindex
+func (c *Client) LIndex(key string, index int) (string, error) {
+	v, err := c.execWithKey(true, "LINDEX", key, index)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
 // TODO: fix
