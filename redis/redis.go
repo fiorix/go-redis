@@ -67,7 +67,7 @@ func resumableError(err error) bool {
 // If a server is listed multiple times, it gets a proportional amount of
 // weight.
 //
-// New supports ip:port, unix:/path, and optional db=N and passwd=PWD.
+// New supports ip:port, /unix/path, and optional db=N and passwd=PWD.
 //
 // Example:
 //
