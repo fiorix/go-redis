@@ -56,11 +56,10 @@ const (
 // be re-used or not. If an error occurs, by default we don't reuse the
 // connection, unless it was just a cache error.
 func resumableError(err error) bool {
-	switch err {
-	case ErrTimedOut, ErrServerError:
-		return false
+	if err == ErrServerError {
+		return true
 	}
-	return true
+	return false // time outs, broken pipes, etc
 }
 
 // New returns a redis client using the provided server(s) with equal weight.
