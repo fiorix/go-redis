@@ -602,6 +602,7 @@ func TestGetSet(t *testing.T) {
 	} else if v != "0" {
 		t.Error(errUnexpected(v))
 	}
+	rc.Del("mycounter")
 }
 
 // TestMGet reproduces the example from http://redis.io/commands/mget.
@@ -631,6 +632,29 @@ func TestMSet(t *testing.T) {
 		t.Error(errUnexpected(v1 + ", " + v2))
 	}
 	rc.Del("key1", "key2")
+}
+
+// TestKeys reproduces the example from http://redis.io/commands/keys
+func TestKeys(t *testing.T) {
+	rc.MSet(map[string]string{
+		"one": "1", "two": "2", "three": "3", "four": "4",
+	})
+	defer func() { rc.Del("one", "two", "three", "four") }()
+	keys, err := rc.Keys("*o*")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	c := 0
+	for _, k := range keys {
+		switch k {
+		case "one", "two", "four":
+			c++
+		}
+	}
+	if c != 3 {
+		t.Error(errUnexpected(keys))
+	}
 }
 
 // TestSetAndGet sets a key, fetches it, and compare the results.

@@ -240,6 +240,21 @@ func vstr2iface(a []string) (r []interface{}) {
 	return
 }
 
+// iface2vstr converts an interface to an array of strings
+func iface2vstr(a interface{}) []string {
+	r := []string{}
+	switch a.(type) {
+	case []interface{}:
+		for _, item := range a.([]interface{}) {
+			switch item.(type) {
+			case string:
+				r = append(r, item.(string))
+			}
+		}
+	}
+	return r
+}
+
 // iface2bool validates and converts interface (int) to bool
 func iface2bool(a interface{}) (bool, error) {
 	switch a.(type) {
