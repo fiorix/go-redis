@@ -511,6 +511,16 @@ func (c *Client) IncrBy(key string, increment int) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/keys
+func (c *Client) Keys(pattern string) ([]string, error) {
+	keys := []string{}
+	v, err := c.execOnFirst(true, "KEYS", pattern)
+	if err != nil {
+		return keys, err
+	}
+	return iface2vstr(v), nil
+}
+
 // http://redis.io/commands/lpush
 func (c *Client) LPush(key string, values ...string) (int, error) {
 	v, err := c.execWithKey(true, "LPUSH", key, vstr2iface(values)...)
