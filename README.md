@@ -6,11 +6,11 @@ go-redis
 *For the latest source code, see <https://github.com/fiorix/go-redis>*
 
 
-``go-redis`` is a [Redis](http://redis.io) client library for the
+_go-redis_ is a [Redis](http://redis.io) client library for the
 [Go](http://golang.org) programming language. It's built on the skeleton of
-the [gomemcache](http://github.com/bradfitz/gomemcache) library.
+[gomemcache](http://github.com/bradfitz/gomemcache).
 
-``go-redis`` is licensed under the Apache License, Version 2.0.
+Licensed under the Apache License, Version 2.0.
 
 
 *THIS IS A WORK IN PROGRESS, USE AT YOUR OWN RISK*
@@ -18,7 +18,7 @@ the [gomemcache](http://github.com/bradfitz/gomemcache) library.
 
 ## Installing
 
-Make sure $GOPATH is set and use ``go get`` to install.
+Use _go get_ to install:
 
 	$ go get github.com/fiorix/go-redis
 
@@ -37,13 +37,13 @@ Hello world:
 		...
 	}
 
-NOTE: When connected to multiple servers, commands such as PING, INFO and
+When connected to multiple servers, commands such as PING, INFO and
 similar are only executed on the first server. GET, SET and others are
 distributed by their key.
 
 See [commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
-for a list of current supported commands. (I'm still working on it, and
-contributors are welcome).
+for a list of current supported commands. (myself, @gleicon and others are
+currently working on it; contributors are welcome)
 
 New connections are created on demand, and stay available in the connection
 pool until they time out.
@@ -53,10 +53,10 @@ pool until they time out.
 
 The client supports ip:port or unix socket for connecting to redis.
 
-	rc := redis.New("unix:/tmp/redis.sock db=5 passwd=foobared")
+	rc := redis.New("/tmp/redis.sock db=5 passwd=foobared")
 
 Database ID and password can only be set by ``New()`` and can't be
-changed later. If that is required, make new connections to the server.
+changed later. If that is required, make a new connection.
 
 
 ## Credits
