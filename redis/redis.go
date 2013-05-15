@@ -15,10 +15,9 @@
 // This is a modified version of gomemcache adapted to redis.
 // Original code and license at https://github.com/bradfitz/gomemcache/
 
-package redis
-
 // WORK IN PROGRESS
 // Package redis provides a client for the redis cache server.
+package redis
 
 import (
 	"bufio"
@@ -66,11 +65,11 @@ func resumableError(err error) bool {
 // If a server is listed multiple times, it gets a proportional amount of
 // weight.
 //
-// New supports ip:port, /unix/path, and optional db=N and passwd=PWD.
-//
+// New supports ip:port or /unix/path, and optional *db* and *passwd* arguments.
 // Example:
 //
 //	rc := redis.New("ip:port db=N passwd=foobared")
+//	rc := redis.New("/tmp/redis.sock db=N passwd=foobared")
 func New(server ...string) *Client {
 	ss := new(ServerList)
 	if err := ss.SetServers(server...); err != nil {
@@ -115,9 +114,8 @@ func (cn *conn) extendDeadline() {
 }
 
 // condRelease releases this connection if the error pointed to by err
-// is is nil (not an error) or is only a protocol level error (e.g. a
-// cache miss).  The purpose is to not recycle TCP connections that
-// are bad.
+// is nil (not an error) or is only a protocol level error.
+// The purpose is to not recycle TCP connections that are bad.
 func (cn *conn) condRelease(err *error) {
 	if *err == nil || resumableError(*err) {
 		cn.release()
@@ -217,73 +215,18 @@ func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 	}
 	cn.extendDeadline()
 	if srv.Passwd != "" {
-		_, err := c.execute(true, cn.rw, "AUTH", srv.Passwd)
+		_, err := c.execute_urp(cn.rw, "AUTH", srv.Passwd)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if srv.DB != "" {
-		_, err := c.execute(false, cn.rw, "SELECT", srv.DB)
+		_, err := c.execute(cn.rw, "SELECT", srv.DB)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return cn, nil
-}
-
-// vstr2iface converts an array of strings to an array of empty interfaces
-func vstr2iface(a []string) (r []interface{}) {
-	r = make([]interface{}, len(a))
-	for n, item := range a {
-		r[n] = item
-	}
-	return
-}
-
-// iface2vstr converts an interface to an array of strings
-func iface2vstr(a interface{}) []string {
-	r := []string{}
-	switch a.(type) {
-	case []interface{}:
-		for _, item := range a.([]interface{}) {
-			switch item.(type) {
-			case string:
-				r = append(r, item.(string))
-			}
-		}
-	}
-	return r
-}
-
-// iface2bool validates and converts interface (int) to bool
-func iface2bool(a interface{}) (bool, error) {
-	switch a.(type) {
-	case int:
-		if a.(int) == 1 {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	}
-	return false, ErrServerError
-}
-
-// iface2int validates and converts interface to int
-func iface2int(a interface{}) (int, error) {
-	switch a.(type) {
-	case int:
-		return a.(int), nil
-	}
-	return 0, ErrServerError
-}
-
-// iface2str validates and converts interface to string
-func iface2str(a interface{}) (string, error) {
-	switch a.(type) {
-	case string:
-		return a.(string), nil
-	}
-	return "", ErrServerError
 }
 
 // execWithKey picks a server based on the key, and executes a command in redis.
@@ -328,40 +271,44 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v int
 		return
 	}
 	defer cn.condRelease(&err)
-	return c.execute(urp, cn.rw, a...)
+	if urp {
+		return c.execute_urp(cn.rw, a...)
+	} else {
+		return c.execute(cn.rw, a...)
+	}
+	// unreachable, but necessary for backwards compatibility with go1
+	return
 }
 
 // execute sends a command to redis, then reads and parses the response.
-// It uses the old protocol, unless urp (Unified Request Protocol) is true.
+// It uses the old protocol and can be used by simple commands, such as DB.
 // Redis protocol <http://redis.io/topics/protocol>
-func (c *Client) execute(urp bool, rw *bufio.ReadWriter, a ...interface{}) (v interface{}, err error) {
+func (c *Client) execute(rw *bufio.ReadWriter, a ...interface{}) (v interface{}, err error) {
 	//fmt.Printf("\nSending: %#v\n", a)
-	s := make([]string, len(a))
-	for n, item := range a {
-		switch item.(type) {
-		case int:
-			s[n] = strconv.Itoa(item.(int))
-		case string:
-			s[n] = item.(string)
-		default:
-			// TODO: panic?
-		}
+	// old redis protocol.
+	_, err = fmt.Fprintf(rw, strings.Join(autoconv_args(a), " ")+"\r\n")
+	if err != nil {
+		return
 	}
-	if urp {
-		// Optional: Unified Request Protocol
-		_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
-		if err != nil {
-			return
-		}
-		for _, i := range s {
-			_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(i), i)
-			if err != nil {
-				return
-			}
-		}
-	} else {
-		// Default: old redis protocol.
-		_, err = fmt.Fprintf(rw, strings.Join(s, " ")+"\r\n")
+	if err = rw.Flush(); err != nil {
+		return
+	}
+	return c.parseResponse(rw)
+}
+
+// execute sends a command to redis, then reads and parses the response.
+// It uses the current protocol and must be used by most commands, such as SET.
+// Redis protocol <http://redis.io/topics/protocol>
+func (c *Client) execute_urp(rw *bufio.ReadWriter, a ...interface{}) (v interface{}, err error) {
+	//fmt.Printf("\nSending: %#v\n", a)
+	// unified request protocol
+	s := autoconv_args(a)
+	_, err = fmt.Fprintf(rw, "*%d\r\n", len(a))
+	if err != nil {
+		return
+	}
+	for _, i := range s {
+		_, err = fmt.Fprintf(rw, "$%d\r\n%s\r\n", len(i), i)
 		if err != nil {
 			return
 		}
@@ -423,7 +370,9 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 			b[n] = s
 		}
 		if len(b) != cap(b) {
-			err = errors.New(fmt.Sprintf("Unexpected response: %#v", string(line)))
+			err = errors.New(
+				fmt.Sprintf("Unexpected response: %#v",
+					string(line)))
 			return
 		}
 		v = string(b[:valueLen]) // removes proto trailing crlf
@@ -450,8 +399,8 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		v = resp
 		return
 	default:
-		// TODO: return error and kill it
-		fmt.Println("Unexpected line:", string(line))
+		// TODO: return error and kill the connection
+		panic("Unexpected line:" + string(line))
 	}
 
 	return
