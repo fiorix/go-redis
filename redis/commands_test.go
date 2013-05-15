@@ -261,7 +261,7 @@ func TestClientSetName(t *testing.T) {
 func TestConfigGet(t *testing.T) {
 	if items, err := rc.ConfigGet("*"); err != nil {
 		t.Error(err)
-	} else if items["port"] != "6379" {
+	} else if _, ok := items["dbfilename"]; !ok {
 		t.Error(errUnexpected(items))
 	}
 }
