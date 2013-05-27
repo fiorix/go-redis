@@ -150,6 +150,46 @@ func TestLPop(t *testing.T) {
 	rc.Del("list1")
 }
 
+func TestLLen(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c")
+	if v, err := rc.LLen("list1"); err != nil {
+		t.Error(err)
+	} else if v != 3 {
+		t.Error(errUnexpected("v=" + string(v)))
+	}
+	rc.Del("list1")
+}
+
+func TestLTrim(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c", "d")
+
+	if err := rc.LTrim("list1", 2, 3); err != nil {
+		t.Error(err)
+	}
+
+    if v, err := rc.LLen("list1"); err != nil {
+		t.Error(err)
+	} else if v != 2 {
+		t.Error(errUnexpected("len list1 =" + string(v)))
+	}
+
+	rc.Del("list1")
+}
+
+func TestLRange(t *testing.T) {
+	rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c", "d")
+
+	if v, err := rc.LRange("list1", 0, 1); err != nil {
+		t.Error(err)
+	} else if v[0] != "a" {
+        t.Error(errUnexpected("LRange list1"))
+    }
+
+	rc.Del("list1")
+}
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")
