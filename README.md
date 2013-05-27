@@ -20,7 +20,7 @@ Licensed under the Apache License, Version 2.0.
 
 Use _go get_ to install:
 
-	$ go get github.com/fiorix/go-redis
+	$ go get github.com/fiorix/go-redis/redis
 
 
 ## Usage
