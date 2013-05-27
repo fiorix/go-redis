@@ -491,7 +491,6 @@ func (c *Client) GetSet(key, value string) (string, error) {
 	return iface2str(v)
 }
 
-
 // http://redis.io/commands/incr
 func (c *Client) Incr(key string) (int, error) {
 	v, err := c.execWithKey(true, "INCR", key)
@@ -567,23 +566,17 @@ func (c *Client) LLen(key string) (int, error) {
 
 // http://redis.io/commands/ltrim
 func (c *Client) LTrim(key string, begin int, end int) (err error) {
-    _, err = c.execWithKey(true, "LTRIM", key, begin, end)
-    return err
+	_, err = c.execWithKey(true, "LTRIM", key, begin, end)
+	return err
 }
 
 // http://redis.io/commands/lrange
-func (c *Client) LRange(key string, begin int, end int) ([]string, error){
-    v, err := c.execWithKey(true, "LRANGE", key, begin, end)
-    if err != nil {
-        return []string{}, err
-    }
-    // v
-    items := v.([]interface{})
-    r := make([]string, len(items))
-    for n, item := range items {
-        r[n] = item.(string)
-    }
-    return r, nil
+func (c *Client) LRange(key string, begin int, end int) ([]string, error) {
+	v, err := c.execWithKey(true, "LRANGE", key, begin, end)
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
 }
 
 // WIP
