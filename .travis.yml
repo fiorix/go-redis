@@ -1,7 +1,7 @@
 language: go
 
 before_script:
- - cd redis
+ - cd src/github.com/fiorix/go-redis/redis
 
 script:
  - go test -v
