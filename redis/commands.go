@@ -579,6 +579,42 @@ func (c *Client) LRange(key string, begin int, end int) ([]string, error) {
 	return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/hincrby
+func (c *Client) HIncrBy(key string, field string, increment int) (int, error) {
+	v, err := c.execWithKey(true, "HINCRBY", key, field, increment)
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/zincrby
+func (c *Client) ZIncrBy(key string, increment int, member string) (string, error) {
+	v, err := c.execWithKey(true, "ZINCRBY", key, increment, member)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
+// http://redis.io/commands/hget
+func (c *Client) HGet(key string, member string) (string, error) {
+	v, err := c.execWithKey(true, "HGET", key, member)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
+// http://redis.io/commands/zscore
+func (c *Client) ZScore(key string, member string) (string, error) {
+	v, err := c.execWithKey(true, "ZSCORE", key, member)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
 // WIP
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
