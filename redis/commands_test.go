@@ -169,7 +169,7 @@ func TestLTrim(t *testing.T) {
 		t.Error(err)
 	}
 
-    if v, err := rc.LLen("list1"); err != nil {
+	if v, err := rc.LLen("list1"); err != nil {
 		t.Error(err)
 	} else if v != 2 {
 		t.Error(errUnexpected("len list1 =" + string(v)))
@@ -185,11 +185,12 @@ func TestLRange(t *testing.T) {
 	if v, err := rc.LRange("list1", 0, 1); err != nil {
 		t.Error(err)
 	} else if v[0] != "a" {
-        t.Error(errUnexpected("LRange list1"))
-    }
+		t.Error(errUnexpected("LRange list1"))
+	}
 
 	rc.Del("list1")
 }
+
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")
@@ -713,6 +714,56 @@ func _TestSetAndGet(t *testing.T) {
 	}
 	// try to clean up anyway
 	rc.Del(k)
+}
+
+// TestHIncrBy
+func TestHIncrBy(t *testing.T) {
+	rc.Del("mykey")
+	if n, err := rc.HIncrBy("mykey", "beavis", 5); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 5 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
+}
+
+// TestHGet
+func TestHGet(t *testing.T) {
+	rc.Del("mykey")
+	if _, err := rc.HIncrBy("mykey", "beavis", 5); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	if n, err := rc.HGet("mykey", "beavis"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != "5" {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
+}
+
+// TestZIncrBy
+func TestZIncrBy(t *testing.T) {
+	rc.Del("mykey")
+	if n, err := rc.ZIncrBy("mykey", 5, "beavis"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != "5" {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
+}
+
+// TestZScore
+func TestZScore(t *testing.T) {
+	rc.Del("mykey")
+	if _, err := rc.ZIncrBy("mykey", 5, "beavis"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	if n, err := rc.ZScore("mykey", "beavis"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != "5" {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("mykey")
 }
 
 // Benchmark plain Set
