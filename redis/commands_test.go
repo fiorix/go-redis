@@ -766,6 +766,44 @@ func TestZScore(t *testing.T) {
 	rc.Del("mykey")
 }
 
+// Test ZAdd
+func TestZAdd(t *testing.T) {
+	rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	if n, err := rc.ZAdd("myzset", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 2 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("myzset")
+}
+
+// Test ZRange
+func TestZRange(t *testing.T) {
+	rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+
+	if n, err := rc.ZRange("myzset", 0, 1, false); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(n) != 2 {
+		t.Error(errUnexpected(n))
+	}
+
+	if n, err := rc.ZRange("myzset", 0, 1, true); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(n) != 4 {
+		t.Error(errUnexpected(n))
+	} else if n[0] != "beavis" && n[2] != "butthead" {
+		t.Error(errUnexpected(n))
+	}
+
+	rc.Del("myzset")
+}
+
 // Benchmark plain Set
 func BenchmarkSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {

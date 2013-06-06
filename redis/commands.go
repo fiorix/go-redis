@@ -35,6 +35,7 @@ package redis
 // 🍺
 
 import (
+	"errors"
 	"strings"
 	"time"
 )
@@ -613,6 +614,36 @@ func (c *Client) ZScore(key string, member string) (string, error) {
 		return "", err
 	}
 	return iface2str(v)
+}
+
+// http://redis.io/commands/zrange
+func (c *Client) ZRange(key string, start int, stop int, withscores bool) ([]string, error) {
+	var v interface{}
+	var err error
+
+	if withscores == true {
+		v, err = c.execWithKey(true, "ZRANGE", key, start, stop, "WITHSCORES")
+	} else {
+		v, err = c.execWithKey(true, "ZRANGE", key, start, stop)
+	}
+
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
+}
+
+func (c *Client) ZAdd(key string, vs ...interface{}) (int, error) {
+	if len(vs)%2 != 0 {
+		return 0, errors.New("Incomplete parameter sequence")
+	}
+
+	v, err := c.execWithKey(true, "ZADD", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
 }
 
 // WIP
