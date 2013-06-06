@@ -646,6 +646,25 @@ func (c *Client) ZAdd(key string, vs ...interface{}) (int, error) {
 	return iface2int(v)
 }
 
+func (c *Client) ZCard(key string) (int, error) {
+	v, err := c.execWithKey(true, "ZCARD", key)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+func (c *Client) ZCount(key string, min int, max int) (int, error) {
+	v, err := c.execWithKey(true, "ZCOUNT", key, min, max)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+
 // WIP
 // http://redis.io/commands/mget
 // MGet is not fully supported on sharded connections.
