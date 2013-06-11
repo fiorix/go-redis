@@ -1,7 +1,2 @@
 language: go
-
-before_script:
- - cd src/github.com/fiorix/go-redis/redis
-
-script:
- - go test -v
+script: go test -v
