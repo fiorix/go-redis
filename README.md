@@ -1,7 +1,7 @@
 go-redis
 ========
 
-_go-redis_ is a [Redis](http://redis.io) client library for the
+go-redis is a [Redis](http://redis.io) client library for the
 [Go programming language](http://golang.org). It's built on the skeleton of
 [gomemcache](http://github.com/bradfitz/gomemcache).
 
@@ -27,7 +27,8 @@ major companies.
 
 ## Installing
 
-Use _go get_ to install:
+Make sure Go is installed, and both $GOROOT and $GOPATH are set, then
+run:
 
 	$ go get github.com/fiorix/go-redis/redis
 
