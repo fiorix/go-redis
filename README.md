@@ -76,5 +76,3 @@ Thanks to (in no particular order):
 - [Gleicon](https://github.com/gleicon) for all the drama.
 - [gomemcache](https://github.com/bradfitz/gomemcache): for the skeleton of
 this client library.
-- [txredisapi](https://github.com/fiorix/txredisapi): for the experience in
-writing redis client libraries over the years.
