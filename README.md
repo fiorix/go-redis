@@ -15,9 +15,9 @@ The library is very stable and has been extensively tested on
 communicating with Redis. It has served dozens of billions of queries that
 used this library to manage people's quota.
 
-It is incomplete, though. Me and @gleicon have only implemented the commands
-we needed for our applications so far, and continue doing so with no rush or
-schedule. Any help is appreciated.
+It is incomplete, though. Me and [@gleicon](https://github.com/gleicon) have
+only implemented the commands we needed for our applications so far, and
+continue doing so with no rush or schedule. Any help is appreciated.
 
 Worth mentioning that this is not an experiment. I've written other Redis
 client libraries before, also very stable and used in large deployments by
