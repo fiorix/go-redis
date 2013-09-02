@@ -24,14 +24,13 @@ package redis
 // Some commands take an integer timeout, in seconds. It's not a time.Duration
 // because redis only supports seconds resolution for timeouts.
 //
-// Redis allows clients to block indefinetely by setting timeout to 0, but
+// Redis allows clients to block indefinitely by setting timeout to 0, but
 // it does not work here. All functions below use the timeout not only to
 // block the operation in redis, but also as a socket read timeout (+delta)
 // to free up system resources.
 //
-// The default TCP read timeout is 100ms.
-//
-// If a timeout is required to be "indefinetely", then set it to 24h-ish.
+// The default TCP read timeout is 100ms. If a timeout is required to
+// be "indefinitely", then set it to something like 86400.
 // 🍺
 
 import (
@@ -72,7 +71,6 @@ func (c *Client) BgSave() (string, error) {
 // http://redis.io/commands/bitcount
 // BitCount ignores start and end if start is a negative number.
 func (c *Client) BitCount(key string, start, end int) (int, error) {
-	// TODO: move int convertions to .execute (it should take interface{})
 	var (
 		v   interface{}
 		err error
@@ -607,66 +605,9 @@ func (c *Client) HGet(key string, member string) (string, error) {
 	return iface2str(v)
 }
 
-// http://redis.io/commands/zscore
-func (c *Client) ZScore(key string, member string) (string, error) {
-	v, err := c.execWithKey(true, "ZSCORE", key, member)
-	if err != nil {
-		return "", err
-	}
-	return iface2str(v)
-}
-
-// http://redis.io/commands/zrange
-func (c *Client) ZRange(key string, start int, stop int, withscores bool) ([]string, error) {
-	var v interface{}
-	var err error
-
-	if withscores == true {
-		v, err = c.execWithKey(true, "ZRANGE", key, start, stop, "WITHSCORES")
-	} else {
-		v, err = c.execWithKey(true, "ZRANGE", key, start, stop)
-	}
-
-	if err != nil {
-		return []string{}, err
-	}
-	return iface2vstr(v), nil
-}
-
-func (c *Client) ZAdd(key string, vs ...interface{}) (int, error) {
-	if len(vs)%2 != 0 {
-		return 0, errors.New("Incomplete parameter sequence")
-	}
-
-	v, err := c.execWithKey(true, "ZADD", key, vs...)
-
-	if err != nil {
-		return 0, err
-	}
-	return iface2int(v)
-}
-
-func (c *Client) ZCard(key string) (int, error) {
-	v, err := c.execWithKey(true, "ZCARD", key)
-
-	if err != nil {
-		return 0, err
-	}
-	return iface2int(v)
-}
-
-func (c *Client) ZCount(key string, min int, max int) (int, error) {
-	v, err := c.execWithKey(true, "ZCOUNT", key, min, max)
-
-	if err != nil {
-		return 0, err
-	}
-	return iface2int(v)
-}
-
-
-// WIP
+// WIP (we stopped here)
 // http://redis.io/commands/mget
+
 // MGet is not fully supported on sharded connections.
 // TODO: fix
 func (c *Client) MGet(keys ...string) ([]string, error) {
@@ -754,6 +695,63 @@ func (c *Client) TTL(key string) (int, error) {
 		return 0, err
 	}
 	return iface2int(v)
+}
+
+func (c *Client) ZAdd(key string, vs ...interface{}) (int, error) {
+	if len(vs)%2 != 0 {
+		return 0, errors.New("Incomplete parameter sequence")
+	}
+
+	v, err := c.execWithKey(true, "ZADD", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+func (c *Client) ZCard(key string) (int, error) {
+	v, err := c.execWithKey(true, "ZCARD", key)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+func (c *Client) ZCount(key string, min int, max int) (int, error) {
+	v, err := c.execWithKey(true, "ZCOUNT", key, min, max)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/zrange
+func (c *Client) ZRange(key string, start int, stop int, withscores bool) ([]string, error) {
+	var v interface{}
+	var err error
+
+	if withscores == true {
+		v, err = c.execWithKey(true, "ZRANGE", key, start, stop, "WITHSCORES")
+	} else {
+		v, err = c.execWithKey(true, "ZRANGE", key, start, stop)
+	}
+
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
+}
+
+// http://redis.io/commands/zscore
+func (c *Client) ZScore(key string, member string) (string, error) {
+	v, err := c.execWithKey(true, "ZSCORE", key, member)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
 }
 
 // GetMulti is a batch version of Get. The returned map from keys to
