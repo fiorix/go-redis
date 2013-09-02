@@ -73,11 +73,6 @@ func parseOptions(srv *ServerInfo, opts []string) error {
 	return nil
 }
 
-func invalidServerError(server string, err error) error {
-	return errors.New(fmt.Sprintf("Invalid redis server '%s': %s",
-		server, err))
-}
-
 // SetServers changes a ServerList's set of servers at runtime and is
 // threadsafe.
 //
@@ -100,14 +95,18 @@ func (ss *ServerList) SetServers(servers ...string) error {
 			addr, err = net.ResolveTCPAddr("tcp", items[0])
 		}
 		if err != nil {
-			return invalidServerError(server, err)
+			return fmt.Errorf(
+				"Invalid redis server '%s': %s",
+				server, err)
 		} else {
 			nsrv[i].Addr = addr
 		}
 		// parse connection options
 		if len(items) > 1 {
 			if err := parseOptions(&nsrv[i], items[1:]); err != nil {
-				return invalidServerError(server, err)
+				return fmt.Errorf(
+					"Invalid redis server '%s': %s",
+					server, err)
 			}
 		}
 		if i == 0 {
