@@ -1,19 +1,28 @@
 go-redis
 ========
 
-[![Build Status](https://secure.travis-ci.org/fiorix/go-redis.png)](http://travis-ci.org/fiorix/go-redis)
-
-*For the latest source code, see <https://github.com/fiorix/go-redis>*
-
-
 _go-redis_ is a [Redis](http://redis.io) client library for the
-[Go](http://golang.org) programming language. It's built on the skeleton of
+[Go programming language](http://golang.org). It's built on the skeleton of
 [gomemcache](http://github.com/bradfitz/gomemcache).
 
 Licensed under the Apache License, Version 2.0.
 
 
-*THIS IS A WORK IN PROGRESS, USE AT YOUR OWN RISK*
+## Status
+
+The library is very stable and has been extensively tested on <freegeoip.net>
+as the underlying quota mechanism communicating with Redis. It has served
+dozens of billions of queries that used this library to manage people's quota.
+
+It is incomplete, though. Me and @gleicon have only implemented the commands
+we needed for our applications so far, and continue doing so with no rush or
+schedule. Any help is appreciated.
+
+Worth mentioning that this is not an experiment. I've written other Redis
+client libraries before, also very stable and used in large deployments by
+major companies.
+
+[![Build Status](https://secure.travis-ci.org/fiorix/go-redis.png)](http://travis-ci.org/fiorix/go-redis)
 
 
 ## Installing
@@ -63,6 +72,7 @@ changed later. If that is required, make a new connection.
 
 Thanks to (in no particular order):
 
+- [Gleicon](https://github.com/gleicon) for all the drama.
 - [gomemcache](https://github.com/bradfitz/gomemcache): for the skeleton of
 this client library.
 - [txredisapi](https://github.com/fiorix/txredisapi): for the experience in
