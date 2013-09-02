@@ -10,9 +10,10 @@ Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-The library is very stable and has been extensively tested on <freegeoip.net>
-as the underlying quota mechanism communicating with Redis. It has served
-dozens of billions of queries that used this library to manage people's quota.
+The library is very stable and has been extensively tested on
+[freegeoip.net](freegeoip.net) as the underlying quota mechanism communicating
+with Redis. It has served dozens of billions of queries that used this library
+to manage people's quota.
 
 It is incomplete, though. Me and @gleicon have only implemented the commands
 we needed for our applications so far, and continue doing so with no rush or
