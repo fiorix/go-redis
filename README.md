@@ -15,9 +15,12 @@ The library is very stable and has been extensively tested on
 communicating with Redis. It has served dozens of billions of queries that
 used this library to manage people's quota.
 
-It is incomplete, though. Me and [@gleicon](https://github.com/gleicon) have
-only implemented the commands we needed for our applications so far, and
-continue doing so with no rush or schedule. Any help is appreciated.
+It is incomplete, though. Me, [@gleicon](https://github.com/gleicon) and
+others have only implemented the commands we needed for our applications so
+far, and continue doing so with no rush or schedule. See
+[commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
+for a list of supported commands - they're in alphabetical order. Contributors
+are welcome.
 
 Worth mentioning that this is not an experiment. I've written other Redis
 client libraries before, also very stable and used in large deployments by
@@ -52,12 +55,8 @@ When connected to multiple servers, commands such as PING, INFO and
 similar are only executed on the first server. GET, SET and others are
 distributed by their key.
 
-See [commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
-for a list of current supported commands. (myself, @gleicon and others are
-currently working on it; contributors are welcome)
-
 New connections are created on demand, and stay available in the connection
-pool until they time out.
+pool until they time out. The library scales very well under high load.
 
 
 ### Unix socket, dbid and password support
