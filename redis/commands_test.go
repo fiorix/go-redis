@@ -1,4 +1,4 @@
-// Copyright 2013 Alexandre Fiori
+// Copyright 2013 go-redis authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -809,11 +809,11 @@ func TestZCard(t *testing.T) {
 	rc.Del("myzset")
 	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
 		t.Error(errUnexpected(err))
-	} 
-    
+	}
+
 	if n, err := rc.ZCard("myzset"); err != nil {
 		t.Error(errUnexpected(err))
-    }else if n != 3 {
+	} else if n != 3 {
 		t.Error(errUnexpected(n))
 	}
 	rc.Del("myzset")
@@ -824,15 +824,16 @@ func TestZCount(t *testing.T) {
 	rc.Del("myzset")
 	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
 		t.Error(errUnexpected(err))
-	} 
-    
+	}
+
 	if n, err := rc.ZCount("myzset", 0, 2); err != nil {
 		t.Error(errUnexpected(err))
-    }else if n != 2 {
+	} else if n != 2 {
 		t.Error(errUnexpected(n))
 	}
 	rc.Del("myzset")
 }
+
 // Benchmark plain Set
 func BenchmarkSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {

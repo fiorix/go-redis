@@ -22,7 +22,7 @@ far, and continue doing so with no rush or schedule. See
 for a list of supported commands - they're in alphabetical order. Contributors
 are welcome.
 
-Worth mentioning that this is not an experiment. I've written other Redis
+Worth mentioning that this is not an experiment. We've written other Redis
 client libraries before, also very stable and used in large deployments by
 major companies.
 
