@@ -32,13 +32,13 @@ import (
 
 var (
 	// ErrNoServers is returned when no servers are configured or available.
-	ErrNoServers = errors.New("redis: no servers configured or available")
+	ErrNoServers = errors.New("no servers configured or available")
 
 	// ErrServer means that a server error occurred.
-	ErrServerError = errors.New("redis: server error")
+	ErrServerError = errors.New("server error")
 
 	// ErrTimedOut is returned when a Read or Write operation times out
-	ErrTimedOut = errors.New("redis: timed out")
+	ErrTimedOut = errors.New("timed out")
 )
 
 // DefaultTimeout is the default socket read/write timeout.
@@ -131,8 +131,7 @@ func (c *Client) putFreeConn(addr net.Addr, cn *conn) {
 		cn.nc.Close()
 		return
 	}
-	// prevent connection from timing out while sitting in the pool
-	cn.nc.SetDeadline(time.Time{})
+	cn.nc.SetDeadline(time.Time{}) // no deadline
 	c.freeconn[addr] = append(freelist, cn)
 }
 
@@ -166,7 +165,7 @@ type ConnectTimeoutError struct {
 }
 
 func (cte *ConnectTimeoutError) Error() string {
-	return "redis: connect timeout to " + cte.Addr.String()
+	return "connect timeout to " + cte.Addr.String()
 }
 
 func (c *Client) dial(addr net.Addr) (net.Conn, error) {
