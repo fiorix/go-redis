@@ -21,7 +21,6 @@ package redis
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -321,7 +320,7 @@ func (c *Client) execute_urp(rw *bufio.ReadWriter, a ...interface{}) (v interfac
 
 // parseResponse reads and parses a single response from redis.
 func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) {
-	line, e := rw.ReadSlice('\n')
+	line, e := rw.ReadString('\n')
 	if err != nil {
 		err = e
 		return
@@ -333,7 +332,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 	}
 	reply := byte(line[0])
 	lineLen := len(line)
-	if len(line) > 2 && bytes.Equal(line[lineLen-2:], []byte("\r\n")) {
+	if len(line) > 2 && line[lineLen-2:] == "\r\n" {
 		line = line[1 : lineLen-2]
 	}
 	switch reply {
