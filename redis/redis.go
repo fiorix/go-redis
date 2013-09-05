@@ -131,6 +131,8 @@ func (c *Client) putFreeConn(addr net.Addr, cn *conn) {
 		cn.nc.Close()
 		return
 	}
+	// prevent connection from timing out while sitting in the pool
+	cn.nc.SetDeadline(time.Time{})
 	c.freeconn[addr] = append(freelist, cn)
 }
 
