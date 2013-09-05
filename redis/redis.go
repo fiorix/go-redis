@@ -42,12 +42,9 @@ var (
 )
 
 // DefaultTimeout is the default socket read/write timeout.
-const DefaultTimeout = time.Duration(100) * time.Millisecond
+const DefaultTimeout = time.Duration(200) * time.Millisecond
 
-const (
-	buffered            = 8 // arbitrary buffered channel size, for readability
-	maxIdleConnsPerAddr = 2 // TODO(bradfitz): make this configurable?
-)
+const maxIdleConnsPerAddr = 2 // TODO: make this configurable?
 
 // resumableError returns true if err is only a protocol-level cache error.
 // This is used to determine whether or not a server connection should
@@ -292,7 +289,7 @@ func (c *Client) execute(rw *bufio.ReadWriter, a ...interface{}) (v interface{},
 	if err = rw.Flush(); err != nil {
 		return
 	}
-	return c.parseResponse(rw)
+	return c.parseResponse(rw.Reader)
 }
 
 // execute sends a command to redis, then reads and parses the response.
@@ -315,19 +312,22 @@ func (c *Client) execute_urp(rw *bufio.ReadWriter, a ...interface{}) (v interfac
 	if err = rw.Flush(); err != nil {
 		return
 	}
-	return c.parseResponse(rw)
+	return c.parseResponse(rw.Reader)
 }
 
 // parseResponse reads and parses a single response from redis.
-func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) {
-	line, e := rw.ReadString('\n')
+func (c *Client) parseResponse(r *bufio.Reader) (v interface{}, err error) {
+	var line string
+	line, err = r.ReadString('\n')
 	if err != nil {
-		err = e
+		if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+			err = ErrTimedOut
+		}
 		return
 	}
-	//fmt.Printf("line=%#v err=%#v\n", string(line), err)
+	//fmt.Printf("line=%#v %x\n", line, &r)
 	if len(line) < 1 {
-		err = ErrTimedOut
+		err = ErrServerError
 		return
 	}
 	reply := byte(line[0])
@@ -362,7 +362,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		b := make([]byte, valueLen+2) // 2==crlf, TODO: fix this
 		var s byte
 		for n := 0; n < cap(b); n++ {
-			s, err = rw.ReadByte()
+			s, err = r.ReadByte()
 			if err != nil {
 				return
 			}
@@ -389,7 +389,7 @@ func (c *Client) parseResponse(rw *bufio.ReadWriter) (v interface{}, err error) 
 		}
 		resp := make([]interface{}, nitems)
 		for n := 0; n < nitems; n++ {
-			resp[n], err = c.parseResponse(rw)
+			resp[n], err = c.parseResponse(r)
 			if err != nil {
 				return
 			}
