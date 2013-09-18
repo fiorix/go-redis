@@ -754,6 +754,15 @@ func (c *Client) ZScore(key string, member string) (string, error) {
 	return iface2str(v)
 }
 
+func (c *Client) ZRem(key string, vs ...interface{}) (int, error) {
+	v, err := c.execWithKey(true, "ZREM", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
 // GetMulti is a batch version of Get. The returned map from keys to
 // items may have fewer elements than the input slice, due to memcache
 // cache misses. Each key must be at most 250 bytes in length.

@@ -780,6 +780,20 @@ func TestZAdd(t *testing.T) {
 	rc.Del("myzset")
 }
 
+// Test ZRem
+func TestZRem(t *testing.T) {
+	rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	if n, err := rc.ZRem("myzset", "beavis", "butthead", "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 3 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("myzset")
+}
+
 // Test ZRange
 func TestZRange(t *testing.T) {
 	rc.Del("myzset")
