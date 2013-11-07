@@ -655,6 +655,12 @@ func (c *Client) MSet(items map[string]string) error {
 	return nil
 }
 
+// http://redis.io/commands/publish
+func (c *Client) Publish(channel string, value string) error {
+	_, err := c.execWithKey(true, "PUBLISH", channel, value)
+	return err
+}
+
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
 	v, err := c.execWithKey(true, "RPUSH", key, vstr2iface(values)...)
