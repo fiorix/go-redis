@@ -52,6 +52,15 @@ func errUnexpected(msg interface{}) string {
 
 // Tests
 
+func TestPublish(t *testing.T) {
+	k := randomString(16)
+	v := randomString(16)
+	if err := rc.Publish(k, v); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
 // TestAppend appends " World" to "Hello" and expects the lenght to be 11.
 func TestAppend(t *testing.T) {
 	defer func() { rc.Del("foobar") }()
