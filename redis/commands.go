@@ -694,6 +694,82 @@ func (c *Client) SetBit(key string, offset, value int) (int, error) {
 	return iface2int(v)
 }
 
+type PubSubMessage struct {
+	Error   error
+	Value   string
+	Channel string
+}
+
+// http://redis.io/commands/subscribe
+func (c *Client) Subscribe(channel string, ch chan PubSubMessage, stop chan bool) error {
+	srv, err := c.selector.PickServer("")
+
+	if err != nil {
+		return err
+	}
+
+	cn, err := c.getConn(srv)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.execute(cn.rw, "SUBSCRIBE", channel)
+
+	if err != nil {
+		cn.condRelease(&err)
+		return err
+	}
+
+	sibStop := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				cn.nc.Close()
+			case <-sibStop:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			raw, err := c.parseResponse(cn.rw.Reader)
+			if err != nil {
+				msg := PubSubMessage{
+					Error: err,
+				}
+				ch <- msg
+
+				sibStop <- true
+				cn.nc.Close()
+				return
+			}
+
+			switch raw.(type) {
+			case []interface{}:
+				ret := raw.([]interface{})
+				msg := PubSubMessage{
+					Value:   ret[2].(string),
+					Channel: ret[1].(string),
+					Error:   nil,
+				}
+				ch <- msg
+			default:
+				msg := PubSubMessage{
+					Error: errors.New("Protocol Error"),
+				}
+				ch <- msg
+				sibStop <- true
+				cn.nc.Close()
+				return
+			}
+		}
+	}()
+
+	return err
+}
+
 // http://redis.io/commands/ttl
 func (c *Client) TTL(key string) (int, error) {
 	v, err := c.execWithKey(true, "TTL", key)
