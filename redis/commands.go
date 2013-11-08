@@ -744,6 +744,11 @@ func (c *Client) Subscribe(channel string, ch chan PubSubMessage, stop chan bool
 		return err
 	}
 
+	if err = cn.nc.SetReadDeadline(time.Unix(0, 0)); err != nil {
+		cn.condRelease(&err)
+		return err
+	}
+
 	sibStop := make(chan bool)
 	go func() {
 		for {
