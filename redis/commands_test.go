@@ -707,6 +707,41 @@ func TestKeys(t *testing.T) {
 	}
 }
 
+func TestSAdd(t *testing.T) {
+	k := randomString(1024)
+
+	//singles
+	for i := 0; i < 10; i++ {
+		v := randomString(16 * 1024 * 1024)
+		_, err := rc.SAdd(k, v)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}
+
+	//multiple
+	_, err := rc.SAdd(k, "setuno", "setdue")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSMembers(t *testing.T) {
+	k := randomString(1024)
+	rc.SAdd(k, "setuno", "setdue")
+	members, err := rc.SMembers(k)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if len(members) != 2 {
+		t.Error("Invalid member count ", len(members))
+		return
+	}
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
 	k := randomString(1024)
