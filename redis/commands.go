@@ -670,6 +670,16 @@ func (c *Client) RPush(key string, values ...string) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/sadd
+func (c *Client) SAdd(key string, vs ...interface{}) (int, error) {
+	v, err := c.execWithKey(true, "SADD", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
 // http://redis.io/commands/script-load
 func (c *Client) ScriptLoad(script string) (string, error) {
 	v, err := c.execOnFirst(true, "SCRIPT", "LOAD", script)
@@ -692,6 +702,20 @@ func (c *Client) SetBit(key string, offset, value int) (int, error) {
 		return 0, err
 	}
 	return iface2int(v)
+}
+
+// http://redis.io/commands/smembers
+func (c *Client) SMembers(key string) ([]string, error) {
+
+	var v interface{}
+	var err error
+
+	v, err = c.execWithKey(true, "SMEMBERS", key)
+
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
 }
 
 type PubSubMessage struct {
