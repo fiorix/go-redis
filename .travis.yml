@@ -1,3 +1,5 @@
 language: go
 before_script: cd redis
 script: go test -v
+services:
+  - redis
