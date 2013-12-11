@@ -712,7 +712,7 @@ func TestSAdd(t *testing.T) {
 
 	//singles
 	for i := 0; i < 10; i++ {
-		v := randomString(16 * 1024 * 1024)
+		v := randomString(32)
 		_, err := rc.SAdd(k, v)
 		if err != nil {
 			t.Error(err)
