@@ -1,5 +1,12 @@
 language: go
-before_script: cd redis
-script: go test -v
+go:
+        - 1.1
+        - 1.2
+        - release
+        - tip
+before_script:
+        - cd redis
+script:
+        - go test -v
 services:
-  - redis
+        - redis
