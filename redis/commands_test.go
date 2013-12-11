@@ -760,6 +760,16 @@ func _TestSetAndGet(t *testing.T) {
 	rc.Del(k)
 }
 
+// TestSetEx sets a key to expire in 10s and checks the result.
+func TestSetEx(t *testing.T) {
+	k := randomString(16)
+	if err := rc.SetEx(k, 10, "foobar"); err != nil {
+		t.Error(err)
+		return
+	}
+	rc.Del(k)
+}
+
 // TestHIncrBy
 func TestHIncrBy(t *testing.T) {
 	rc.Del("mykey")
