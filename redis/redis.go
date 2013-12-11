@@ -273,6 +273,8 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v int
 	} else {
 		return c.execute(cn.rw, a...)
 	}
+	// unreachable, but necessary for backwards compatibility with go1
+	return
 }
 
 // execute sends a command to redis, then reads and parses the response.
