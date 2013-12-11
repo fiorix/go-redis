@@ -704,6 +704,12 @@ func (c *Client) SetBit(key string, offset, value int) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/setex
+func (c *Client) SetEx(key string, seconds int, value string) (err error) {
+	_, err = c.execWithKey(true, "SETEX", key, seconds, value)
+	return
+}
+
 // http://redis.io/commands/smembers
 func (c *Client) SMembers(key string) ([]string, error) {
 
