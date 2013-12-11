@@ -52,6 +52,15 @@ func errUnexpected(msg interface{}) string {
 
 // Tests
 
+func TestPublish(t *testing.T) {
+	k := randomString(16)
+	v := randomString(16)
+	if err := rc.Publish(k, v); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
 // TestAppend appends " World" to "Hello" and expects the lenght to be 11.
 func TestAppend(t *testing.T) {
 	defer func() { rc.Del("foobar") }()
@@ -698,6 +707,41 @@ func TestKeys(t *testing.T) {
 	}
 }
 
+func TestSAdd(t *testing.T) {
+	k := randomString(1024)
+
+	//singles
+	for i := 0; i < 10; i++ {
+		v := randomString(16 * 1024 * 1024)
+		_, err := rc.SAdd(k, v)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	}
+
+	//multiple
+	_, err := rc.SAdd(k, "setuno", "setdue")
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestSMembers(t *testing.T) {
+	k := randomString(1024)
+	rc.SAdd(k, "setuno", "setdue")
+	members, err := rc.SMembers(k)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if len(members) != 2 {
+		t.Error("Invalid member count ", len(members))
+		return
+	}
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
 	k := randomString(1024)
@@ -775,6 +819,20 @@ func TestZAdd(t *testing.T) {
 	if n, err := rc.ZAdd("myzset", 2, "butthead", 3, "professor_buzzcut"); err != nil {
 		t.Error(errUnexpected(err))
 	} else if n != 2 {
+		t.Error(errUnexpected(n))
+	}
+	rc.Del("myzset")
+}
+
+// Test ZRem
+func TestZRem(t *testing.T) {
+	rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	if n, err := rc.ZRem("myzset", "beavis", "butthead", "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if n != 3 {
 		t.Error(errUnexpected(n))
 	}
 	rc.Del("myzset")
