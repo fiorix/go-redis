@@ -655,9 +655,25 @@ func (c *Client) MSet(items map[string]string) error {
 	return nil
 }
 
+// http://redis.io/commands/publish
+func (c *Client) Publish(channel string, value string) error {
+	_, err := c.execWithKey(true, "PUBLISH", channel, value)
+	return err
+}
+
 // http://redis.io/commands/rpush
 func (c *Client) RPush(key string, values ...string) (int, error) {
 	v, err := c.execWithKey(true, "RPUSH", key, vstr2iface(values)...)
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/sadd
+func (c *Client) SAdd(key string, vs ...interface{}) (int, error) {
+	v, err := c.execWithKey(true, "SADD", key, vs...)
+
 	if err != nil {
 		return 0, err
 	}
@@ -686,6 +702,101 @@ func (c *Client) SetBit(key string, offset, value int) (int, error) {
 		return 0, err
 	}
 	return iface2int(v)
+}
+
+// http://redis.io/commands/smembers
+func (c *Client) SMembers(key string) ([]string, error) {
+
+	var v interface{}
+	var err error
+
+	v, err = c.execWithKey(true, "SMEMBERS", key)
+
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
+}
+
+type PubSubMessage struct {
+	Error   error
+	Value   string
+	Channel string
+}
+
+// http://redis.io/commands/subscribe
+func (c *Client) Subscribe(channel string, ch chan PubSubMessage, stop chan bool) error {
+	srv, err := c.selector.PickServer("")
+
+	if err != nil {
+		return err
+	}
+
+	cn, err := c.getConn(srv)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.execute(cn.rw, "SUBSCRIBE", channel)
+
+	if err != nil {
+		cn.condRelease(&err)
+		return err
+	}
+
+	if err = cn.nc.SetDeadline(time.Time{}); err != nil {
+		cn.condRelease(&err)
+		return err
+	}
+
+	sibStop := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				cn.nc.Close()
+			case <-sibStop:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			raw, err := c.parseResponse(cn.rw.Reader)
+			if err != nil {
+				msg := PubSubMessage{
+					Error: err,
+				}
+				ch <- msg
+
+				sibStop <- true
+				cn.nc.Close()
+				return
+			}
+
+			switch raw.(type) {
+			case []interface{}:
+				ret := raw.([]interface{})
+				msg := PubSubMessage{
+					Value:   ret[2].(string),
+					Channel: ret[1].(string),
+					Error:   nil,
+				}
+				ch <- msg
+			default:
+				msg := PubSubMessage{
+					Error: errors.New("Protocol Error"),
+				}
+				ch <- msg
+				sibStop <- true
+				cn.nc.Close()
+				return
+			}
+		}
+	}()
+
+	return err
 }
 
 // http://redis.io/commands/ttl
@@ -752,6 +863,15 @@ func (c *Client) ZScore(key string, member string) (string, error) {
 		return "", err
 	}
 	return iface2str(v)
+}
+
+func (c *Client) ZRem(key string, vs ...interface{}) (int, error) {
+	v, err := c.execWithKey(true, "ZREM", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
 }
 
 // GetMulti is a batch version of Get. The returned map from keys to
