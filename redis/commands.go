@@ -68,6 +68,22 @@ func (c *Client) BgSave() (string, error) {
 	return iface2str(v)
 }
 
+// http://redis.io/commands/ping
+// goes to first connection only
+func (c *Client) Ping() error {
+	v, err := c.execOnFirst(false, "PING")
+	if err != nil {
+		return err
+	}
+	s, err := iface2str(v)
+	if err != nil {
+		return err
+	} else if s != "PONG" {
+		return ErrServerError
+	}
+	return nil
+}
+
 // http://redis.io/commands/bitcount
 // BitCount ignores start and end if start is a negative number.
 func (c *Client) BitCount(key string, start, end int) (int, error) {
