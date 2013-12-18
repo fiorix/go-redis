@@ -770,6 +770,13 @@ func TestSetEx(t *testing.T) {
 	rc.Del(k)
 }
 
+func TestPing(t *testing.T) {
+	if err := rc.Ping(); err != nil {
+		t.Error(err)
+		return
+	}
+}
+
 // TestHIncrBy
 func TestHIncrBy(t *testing.T) {
 	rc.Del("mykey")
