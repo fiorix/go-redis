@@ -273,6 +273,7 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v int
 	} else {
 		return c.execute(cn.rw, a...)
 	}
+	return
 }
 
 // execute sends a command to redis, then reads and parses the response.
