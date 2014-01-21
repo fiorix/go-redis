@@ -781,21 +781,71 @@ func TestHIncrBy(t *testing.T) {
 	rc.Del("mykey")
 }
 
-// TestHGet
-func TestHGet(t *testing.T) {
+// TestHSet sets the a field in the hash and checks the result.
+func TestHSet(t *testing.T) {
 	rc.Del("mykey")
-	if _, err := rc.HIncrBy("mykey", "beavis", 5); err != nil {
+	if err := rc.HSet("mykey", "foo", "bar"); err != nil {
 		t.Error(errUnexpected(err))
 	}
-	if n, err := rc.HGet("mykey", "beavis"); err != nil {
+	rc.Del("mykey")
+}
+
+// TestHGet sets a key and gets its value, checking the results.
+func TestHGet(t *testing.T) {
+	rc.Del("mykey")
+	defer rc.Del("mykey")
+	rc.HSet("mykey", "foo", "bar")
+	if n, err := rc.HGet("mykey", "foo"); err != nil {
 		t.Error(errUnexpected(err))
-	} else if n != "5" {
+	} else if n != "bar" {
 		t.Error(errUnexpected(n))
 	}
 	rc.Del("mykey")
 }
 
-// TestZIncrBy
+// TestHMSet sets multiple fields in the hash and checks the result.
+func TestHMSet(t *testing.T) {
+	rc.Del("mykey")
+	if err := rc.HMSet("mykey", map[string]string{
+		"foo":   "bar",
+		"hello": "world",
+	}); err != nil {
+		t.Error(errUnexpected(err))
+	}
+	rc.Del("mykey")
+}
+
+// TestHMGet sets fields in the hash, then get them and checks the results.
+func TestHMGet(t *testing.T) {
+	rc.Del("mykey")
+	rc.HMSet("mykey", map[string]string{
+		"foo":   "bar",
+		"hello": "world",
+	})
+	if v, err := rc.HMGet("mykey", "foo", "hello"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(v) != 2 || v[0] != "bar" || v[1] != "world" {
+		t.Error(errUnexpected(v))
+	}
+	rc.Del("mykey")
+}
+
+// TestHGetAll sets fields in the hash, get them all and checks the results.
+func TestHGetAll(t *testing.T) {
+	rc.Del("mykey")
+	rc.HMSet("mykey", map[string]string{
+		"foo":   "bar",
+		"hello": "world",
+	})
+	if v, err := rc.HGetAll("mykey"); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(v) != 2 || v["foo"] != "bar" || v["hello"] != "world" {
+		t.Error(errUnexpected(v))
+	}
+	rc.Del("mykey")
+}
+
+// TestZIncrBy increments a field in a hash and checks the result.
 func TestZIncrBy(t *testing.T) {
 	rc.Del("mykey")
 	if n, err := rc.ZIncrBy("mykey", 5, "beavis"); err != nil {
