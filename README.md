@@ -45,7 +45,7 @@ run:
 
 Hello world:
 
-	import "github.com/fiorix/go-redis"
+	import "github.com/fiorix/go-redis/redis"
 
 	func main() {
 		rc := redis.New("10.0.0.1:6379", "10.0.0.2:6379", "10.0.0.3:6379")
