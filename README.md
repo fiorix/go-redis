@@ -14,21 +14,21 @@ Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-The library is very stable and has been extensively tested on
+The library is stable and has been extensively tested on
 [freegeoip.net](http://freegeoip.net) as the underlying quota mechanism
-communicating with Redis. It has served dozens of billions of queries that
-used this library to manage people's quota.
+on Redis. It has served dozens of billions of queries that used this library
+to manage usage.
 
-It is incomplete, though. Me, [@gleicon](https://github.com/gleicon) and
-others have only implemented the commands we needed for our applications so
-far, and continue doing so with no rush or schedule. See
-[commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
+It is incomplete, though. Me, [@gleicon](https://github.com/gleicon),
+[@lxfontes](https://github.com/lxfontes) and others have only implemented the
+commands we needed for our applications so far, and continue doing so with no
+rush or schedule.
+See [commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
 for a list of supported commands - they're in alphabetical order. Contributors
 are welcome.
 
-Worth mentioning that this is not an experiment. We've written other Redis
-client libraries before, also very stable and used in large deployments by
-major companies.
+We've written other Redis client libraries before, also very stable and used
+in large deployments by major companies.
 
 [![Build Status](https://secure.travis-ci.org/fiorix/go-redis.png)](http://travis-ci.org/fiorix/go-redis)
 
@@ -77,6 +77,7 @@ changed later. If that is required, make a new connection.
 
 Thanks to (in no particular order):
 
-- [Gleicon](https://github.com/gleicon) for all the drama.
+- [Gleicon Moraes](https://github.com/gleicon) for all the drama.
+- [Lucas Fontes](https://github.com/lxfontes) for implementing new commands.
 - [gomemcache](https://github.com/bradfitz/gomemcache): for the skeleton of
 this client library.
