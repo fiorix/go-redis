@@ -46,6 +46,16 @@ func iface2vstr(a interface{}) []string {
 	return r
 }
 
+// iface2strmap converts an interface to map of strings
+func iface2strmap(a interface{}) map[string]string {
+	tmp := iface2vstr(a)
+	m := make(map[string]string)
+	for n := 0; n < len(tmp)/2; n++ {
+		m[tmp[n*2]] = tmp[(n*2)+1]
+	}
+	return m
+}
+
 // iface2bool validates and converts interface (int) to bool
 func iface2bool(a interface{}) (bool, error) {
 	switch a.(type) {
