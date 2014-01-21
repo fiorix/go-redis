@@ -213,35 +213,11 @@ func (c *Client) ClientSetName(name string) error {
 // http://redis.io/commands/config-get
 // ConfigGet is not fully supported on sharded connections.
 func (c *Client) ConfigGet(name string) (map[string]string, error) {
-	r, err := c.execOnFirst(false, "CONFIG GET", name)
+	v, err := c.execOnFirst(false, "CONFIG GET", name)
 	if err != nil {
 		return nil, err
 	}
-	var items []interface{}
-	switch r.(type) {
-	case []interface{}:
-		items = r.([]interface{})
-	default:
-		return nil, ErrServerError
-	}
-	k := ""
-	v := ""
-	m := make(map[string]string)
-	for n, item := range items {
-		switch item.(type) {
-		case string:
-			v = item.(string)
-		default:
-			return nil, ErrServerError
-		}
-		if n%2 == 0 {
-			k = v
-		} else if n%2 == 1 {
-			m[k] = v
-		}
-	}
-	m[k] = v
-	return m, nil
+	return iface2strmap(v), nil
 }
 
 // http://redis.io/commands/config-set
@@ -371,7 +347,7 @@ func (c *Client) Echo(message string) (string, error) {
 
 // http://redis.io/commands/eval
 // Eval is not fully supported on sharded connections.
-func (c *Client) Eval(script string, numkeys int, keys []string, args []string) (interface{}, error) {
+func (c *Client) Eval(script string, numkeys int, keys, args []string) (interface{}, error) {
 	a := []interface{}{
 		"EVAL",
 		script, // escape?
@@ -388,7 +364,7 @@ func (c *Client) Eval(script string, numkeys int, keys []string, args []string) 
 
 // http://redis.io/commands/evalsha
 // EvalSha is not fully supported on sharded connections.
-func (c *Client) EvalSha(sha1 string, numkeys int, keys []string, args []string) (interface{}, error) {
+func (c *Client) EvalSha(sha1 string, numkeys int, keys, args []string) (interface{}, error) {
 	a := []interface{}{
 		"EVALSHA",
 		sha1,
@@ -564,18 +540,36 @@ func (c *Client) LLen(key string) (int, error) {
 }
 
 // http://redis.io/commands/ltrim
-func (c *Client) LTrim(key string, begin int, end int) (err error) {
+func (c *Client) LTrim(key string, begin, end int) (err error) {
 	_, err = c.execWithKey(true, "LTRIM", key, begin, end)
 	return err
 }
 
 // http://redis.io/commands/lrange
-func (c *Client) LRange(key string, begin int, end int) ([]string, error) {
+func (c *Client) LRange(key string, begin, end int) ([]string, error) {
 	v, err := c.execWithKey(true, "LRANGE", key, begin, end)
 	if err != nil {
 		return []string{}, err
 	}
 	return iface2vstr(v), nil
+}
+
+// http://redis.io/commands/hget
+func (c *Client) HGet(key, member string) (string, error) {
+	v, err := c.execWithKey(true, "HGET", key, member)
+	if err != nil {
+		return "", err
+	}
+	return iface2str(v)
+}
+
+// http://redis.io/commands/hgetall
+func (c *Client) HGetAll(key string) (map[string]string, error) {
+	v, err := c.execWithKey(true, "HGETALL", key)
+	if err != nil {
+		return nil, err
+	}
+	return iface2strmap(v), nil
 }
 
 // http://redis.io/commands/hincrby
@@ -587,18 +581,38 @@ func (c *Client) HIncrBy(key string, field string, increment int) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/hmget
+func (c *Client) HMGet(key string, field ...string) ([]string, error) {
+	v, err := c.execWithKey(true, "HMGET", key, vstr2iface(field)...)
+	if err != nil {
+		return nil, err
+	}
+	return iface2vstr(v), nil
+}
+
+// http://redis.io/commands/hmset
+func (c *Client) HMSet(key string, items map[string]string) (err error) {
+	tmp := make([]interface{}, (len(items) * 2))
+	idx := 0
+	for k, v := range items {
+		n := idx * 2
+		tmp[n] = k
+		tmp[n+1] = v
+		idx++
+	}
+	_, err = c.execWithKey(true, "HMSET", key, tmp...)
+	return
+}
+
+// http://redis.io/commands/hset
+func (c *Client) HSet(key, field, value string) (err error) {
+	_, err = c.execWithKey(true, "HSET", key, field, value)
+	return
+}
+
 // http://redis.io/commands/zincrby
 func (c *Client) ZIncrBy(key string, increment int, member string) (string, error) {
 	v, err := c.execWithKey(true, "ZINCRBY", key, increment, member)
-	if err != nil {
-		return "", err
-	}
-	return iface2str(v)
-}
-
-// http://redis.io/commands/hget
-func (c *Client) HGet(key string, member string) (string, error) {
-	v, err := c.execWithKey(true, "HGET", key, member)
 	if err != nil {
 		return "", err
 	}
