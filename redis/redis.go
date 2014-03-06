@@ -31,6 +31,8 @@ import (
 )
 
 var (
+	MaxIdleConnsPerAddr = 2
+
 	// ErrNoServers is returned when no servers are configured or available.
 	ErrNoServers = errors.New("no servers configured or available")
 
@@ -43,8 +45,6 @@ var (
 
 // DefaultTimeout is the default socket read/write timeout.
 const DefaultTimeout = time.Duration(200) * time.Millisecond
-
-const maxIdleConnsPerAddr = 2 // TODO: make this configurable?
 
 // resumableError returns true if err is only a protocol-level cache error.
 // This is used to determine whether or not a server connection should
@@ -127,7 +127,7 @@ func (c *Client) putFreeConn(addr net.Addr, cn *conn) {
 		c.freeconn = make(map[string][]*conn)
 	}
 	freelist := c.freeconn[addr.String()]
-	if len(freelist) >= maxIdleConnsPerAddr {
+	if len(freelist) >= MaxIdleConnsPerAddr {
 		cn.nc.Close()
 		return
 	}
