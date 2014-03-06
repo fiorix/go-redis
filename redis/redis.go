@@ -89,7 +89,7 @@ type Client struct {
 	selector ServerSelector
 
 	lk       sync.Mutex
-	freeconn map[net.Addr][]*conn
+	freeconn map[string][]*conn
 }
 
 // conn is a connection to a server.
@@ -124,15 +124,15 @@ func (c *Client) putFreeConn(addr net.Addr, cn *conn) {
 	c.lk.Lock()
 	defer c.lk.Unlock()
 	if c.freeconn == nil {
-		c.freeconn = make(map[net.Addr][]*conn)
+		c.freeconn = make(map[string][]*conn)
 	}
-	freelist := c.freeconn[addr]
+	freelist := c.freeconn[addr.String()]
 	if len(freelist) >= maxIdleConnsPerAddr {
 		cn.nc.Close()
 		return
 	}
 	cn.nc.SetDeadline(time.Time{}) // no deadline
-	c.freeconn[addr] = append(freelist, cn)
+	c.freeconn[addr.String()] = append(freelist, cn)
 }
 
 func (c *Client) getFreeConn(srv ServerInfo) (cn *conn, ok bool) {
@@ -141,12 +141,12 @@ func (c *Client) getFreeConn(srv ServerInfo) (cn *conn, ok bool) {
 	if c.freeconn == nil {
 		return nil, false
 	}
-	freelist, ok := c.freeconn[srv.Addr]
+	freelist, ok := c.freeconn[srv.Addr.String()]
 	if !ok || len(freelist) == 0 {
 		return nil, false
 	}
 	cn = freelist[len(freelist)-1]
-	c.freeconn[srv.Addr] = freelist[:len(freelist)-1]
+	c.freeconn[srv.Addr.String()] = freelist[:len(freelist)-1]
 	return cn, true
 }
 
