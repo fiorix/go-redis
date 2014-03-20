@@ -246,7 +246,6 @@ func (c *Client) notifyClose(nc net.Conn) *bufio.ReadWriter {
 }
 
 func (c *Client) cleanupFreeConns(nc net.Conn) {
-	// Remove all connections for this address from the pool.
 	c.lk.Lock()
 	defer c.lk.Unlock()
 	if c.freeconn == nil {
