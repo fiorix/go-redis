@@ -5,8 +5,8 @@ go-redis is a [Redis](http://redis.io) client library for the
 [Go programming language](http://golang.org). It's built on the skeleton of
 [gomemcache](http://github.com/bradfitz/gomemcache).
 
-It is safe to use by multiple goroutines, and will automatically make new
-connections to redis on demand - scales well. Idle connections stay in the
+It is safe to use by multiple goroutines, and scales well by automatically
+making new connections to redis on demand. Idle connections stay in the
 connection pool until time out.
 
 Licensed under the Apache License, Version 2.0.
