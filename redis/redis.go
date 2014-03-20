@@ -240,12 +240,12 @@ func (c *Client) notifyClose(nc net.Conn) *bufio.ReadWriter {
 			err = io.EOF
 		}
 		pw.CloseWithError(err)
-		c.cleanupFreeConns(nc)
+		c.cleanupFreeConn(nc)
 	}()
 	return rw
 }
 
-func (c *Client) cleanupFreeConns(nc net.Conn) {
+func (c *Client) cleanupFreeConn(nc net.Conn) {
 	c.lk.Lock()
 	defer c.lk.Unlock()
 	if c.freeconn == nil {
