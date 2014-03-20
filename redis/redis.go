@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -31,7 +32,8 @@ import (
 )
 
 var (
-	MaxIdleConnsPerAddr = 2
+	// Max number of connections (per server address) idling in the pool.
+	MaxIdleConnsPerAddr = 1024
 
 	// ErrNoServers is returned when no servers are configured or available.
 	ErrNoServers = errors.New("no servers configured or available")
@@ -68,6 +70,9 @@ func resumableError(err error) bool {
 //	rc := redis.New("/tmp/redis.sock db=N passwd=foobared")
 func New(server ...string) *Client {
 	ss := new(ServerList)
+	if len(server) == 0 {
+		server = []string{"localhost:6379"}
+	}
 	if err := ss.SetServers(server...); err != nil {
 		panic(err)
 	}
@@ -169,14 +174,14 @@ func (cte *ConnectTimeoutError) Error() string {
 }
 
 func (c *Client) dial(addr net.Addr) (net.Conn, error) {
-	type connError struct {
+	type dialRes struct {
 		cn  net.Conn
 		err error
 	}
-	ch := make(chan connError)
+	ch := make(chan dialRes)
 	go func() {
 		nc, err := net.Dial(addr.Network(), addr.String())
-		ch <- connError{nc, err}
+		ch <- dialRes{nc, err}
 	}()
 	select {
 	case ce := <-ch:
@@ -207,7 +212,7 @@ func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 	cn = &conn{
 		nc:  nc,
 		srv: srv,
-		rw:  bufio.NewReadWriter(bufio.NewReader(nc), bufio.NewWriter(nc)),
+		rw:  c.notifyClose(nc),
 		c:   c,
 	}
 	cn.extendDeadline()
@@ -224,6 +229,44 @@ func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 		}
 	}
 	return cn, nil
+}
+
+func (c *Client) notifyClose(nc net.Conn) *bufio.ReadWriter {
+	pr, pw := io.Pipe()
+	rw := bufio.NewReadWriter(bufio.NewReader(pr), bufio.NewWriter(nc))
+	go func() {
+		_, err := io.Copy(pw, nc)
+		if err == nil {
+			err = io.EOF
+		}
+		pw.CloseWithError(err)
+		c.cleanupFreeConns(nc)
+	}()
+	return rw
+}
+
+func (c *Client) cleanupFreeConns(nc net.Conn) {
+	// Remove all connections for this address from the pool.
+	c.lk.Lock()
+	defer c.lk.Unlock()
+	if c.freeconn == nil {
+		return
+	}
+	freelist, ok := c.freeconn[nc.RemoteAddr().String()]
+	if !ok || len(freelist) == 0 {
+		return
+	}
+	nc.Close()
+	for n, conn := range freelist {
+		if nc == conn.nc {
+			// TODO: optimize
+			copy(freelist[n:], freelist[n+1:])
+			freelist[len(freelist)-1] = nil
+			freelist = freelist[:len(freelist)-1]
+			c.freeconn[nc.RemoteAddr().String()] = freelist
+			break
+		}
+	}
 }
 
 // execWithKey picks a server based on the key, and executes a command in redis.
