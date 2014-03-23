@@ -110,8 +110,8 @@ func (cn *conn) release() {
 	cn.c.putFreeConn(cn.srv.Addr, cn)
 }
 
-func (cn *conn) extendDeadline() {
-	cn.nc.SetDeadline(time.Now().Add(cn.c.netTimeout()))
+func (cn *conn) extendDeadline(delta time.Duration) {
+	cn.nc.SetDeadline(time.Now().Add(cn.c.netTimeout() + delta))
 }
 
 // condRelease releases this connection if the error pointed to by err
@@ -202,7 +202,7 @@ func (c *Client) dial(addr net.Addr) (net.Conn, error) {
 func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 	cn, ok := c.getFreeConn(srv)
 	if ok {
-		cn.extendDeadline()
+		cn.extendDeadline(0)
 		return cn, nil
 	}
 	nc, err := c.dial(srv.Addr)
@@ -215,7 +215,7 @@ func (c *Client) getConn(srv ServerInfo) (*conn, error) {
 		rw:  c.notifyClose(nc),
 		c:   c,
 	}
-	cn.extendDeadline()
+	cn.extendDeadline(0)
 	if srv.Passwd != "" {
 		_, err := c.execute_urp(cn.rw, "AUTH", srv.Passwd)
 		if err != nil {
@@ -278,6 +278,17 @@ func (c *Client) execWithKey(urp bool, cmd, key string, a ...interface{}) (v int
 	return c.execWithAddr(urp, srv, append(x, a...)...)
 }
 
+// execWithKeyTimeout picks a server based on the key, and executes a command
+// in redis, extending the connection timeout for the given command.
+func (c *Client) execWithKeyTimeout(urp bool, timeout int, cmd, key string, a ...interface{}) (v interface{}, err error) {
+	srv, err := c.selector.PickServer(key)
+	if err != nil {
+		return
+	}
+	x := []interface{}{cmd, key}
+	return c.execWithAddrTimeout(urp, srv, timeout, append(x, a...)...)
+}
+
 // execWithKeys calls execWithKey for each key, returns an array of results.
 func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...interface{}) (v interface{}, err error) {
 	var r []interface{}
@@ -309,6 +320,22 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v int
 	if err != nil {
 		return
 	}
+	defer cn.condRelease(&err)
+	if urp {
+		return c.execute_urp(cn.rw, a...)
+	} else {
+		return c.execute(cn.rw, a...)
+	}
+}
+
+// execWithAddrTimeout executes a command in a specific redis server,
+// extending the connection timeout for the given command.
+func (c *Client) execWithAddrTimeout(urp bool, srv ServerInfo, timeout int, a ...interface{}) (v interface{}, err error) {
+	cn, err := c.getConn(srv)
+	if err != nil {
+		return
+	}
+	cn.extendDeadline(time.Duration(timeout) * time.Second)
 	defer cn.condRelease(&err)
 	if urp {
 		return c.execute_urp(cn.rw, a...)
