@@ -119,9 +119,9 @@ func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, 
 	// Extend the client's timeout for this operation only.
 	// TODO: make sure it does not affect other concurrent calls.
 	if t == 0 {
-		c.Timeout = time.Duration(timeout) + DefaultTimeout
+		c.Timeout = (time.Duration(timeout) * time.Second) + DefaultTimeout
 	} else {
-		c.Timeout = time.Duration(timeout) + t
+		c.Timeout = (time.Duration(timeout) * time.Second) + t
 	}
 	var r interface{}
 	r, err = c.execWithKey(true, cmd, keys[0],
