@@ -929,6 +929,30 @@ func TestZRange(t *testing.T) {
 	rc.Del("myzset")
 }
 
+// Test ZRevRange
+func TestZRevRange(t *testing.T) {
+	rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Error(errUnexpected(err))
+	}
+
+	if n, err := rc.ZRange("myzset", 0, 1, false); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(n) != 2 {
+		t.Error(errUnexpected(n))
+	}
+
+	if n, err := rc.ZRange("myzset", 0, 1, true); err != nil {
+		t.Error(errUnexpected(err))
+	} else if len(n) != 4 {
+		t.Error(errUnexpected(n))
+	} else if n[0] != "professor_buzzcut" && n[2] != "butthead" {
+		t.Error(errUnexpected(n))
+	}
+
+	rc.Del("myzset")
+}
+
 // Test ZCard
 func TestZCard(t *testing.T) {
 	rc.Del("myzset")

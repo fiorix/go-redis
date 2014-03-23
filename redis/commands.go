@@ -892,6 +892,23 @@ func (c *Client) ZRange(key string, start int, stop int, withscores bool) ([]str
 	return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/zrevrange
+func (c *Client) ZRevRange(key string, start int, stop int, withscores bool) ([]string, error) {
+	var v interface{}
+	var err error
+
+	if withscores == true {
+		v, err = c.execWithKey(true, "ZREVRANGE", key, start, stop, "WITHSCORES")
+	} else {
+		v, err = c.execWithKey(true, "ZREVRANGE", key, start, stop)
+	}
+
+	if err != nil {
+		return []string{}, err
+	}
+	return iface2vstr(v), nil
+}
+
 // http://redis.io/commands/zscore
 func (c *Client) ZScore(key string, member string) (string, error) {
 	v, err := c.execWithKey(true, "ZSCORE", key, member)
