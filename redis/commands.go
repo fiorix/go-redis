@@ -29,8 +29,11 @@ package redis
 // block the operation in redis, but also as a socket read timeout (+delta)
 // to free up system resources.
 //
-// The default TCP read timeout is 100ms. If a timeout is required to
+// The default TCP read timeout is 200ms. If a timeout is required to
 // be "indefinitely", then set it to something like 86400.
+//
+// See redis.DefaultTimeout for details.
+//
 // 🍺
 
 import (
@@ -115,18 +118,14 @@ func (c *Client) BitOp(operation, destkey, key string, keys ...string) (int, err
 
 // blbrPop supports both BLPop and BRPop.
 func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, err error) {
-	t := c.Timeout
-	// Extend the client's timeout for this operation only.
-	// TODO: make sure it does not affect other concurrent calls.
-	if t == 0 {
-		c.Timeout = (time.Duration(timeout) * time.Second) + DefaultTimeout
-	} else {
-		c.Timeout = (time.Duration(timeout) * time.Second) + t
-	}
 	var r interface{}
-	r, err = c.execWithKey(true, cmd, keys[0],
-		append(vstr2iface(keys[1:]), timeout)...)
-	c.Timeout = t
+	r, err = c.execWithKeyTimeout(
+		true,
+		timeout,
+		cmd,
+		keys[0],
+		append(vstr2iface(keys[1:]), timeout)...,
+	)
 	if err != nil {
 		return
 	}
@@ -152,18 +151,21 @@ func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, 
 
 // http://redis.io/commands/blpop
 // BLPop is not fully supported on sharded connections.
+// A timeout of 0 uses DefaultTimeout, which is probably too low.
 func (c *Client) BLPop(timeout int, keys ...string) (k, v string, err error) {
 	return c.blbrPop("BLPOP", timeout, keys...)
 }
 
 // http://redis.io/commands/brpop
 // BRPop is not fully supported on sharded connections.
+// A timeout of 0 uses DefaultTimeout, which is probably too low.
 func (c *Client) BRPop(timeout int, keys ...string) (k, v string, err error) {
 	return c.blbrPop("BRPOP", timeout, keys...)
 }
 
 // http://redis.io/commands/brpoplpush
 // BRPopLPush is not fully supported on sharded connections.
+// A timeout of 0 uses DefaultTimeout, which is probably too low.
 func (c *Client) BRPopLPush(src, dst string, timeout int) (string, error) {
 	t := c.Timeout
 	// Extend the client's timeout for this operation only.

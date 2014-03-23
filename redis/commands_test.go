@@ -238,6 +238,21 @@ func TestBRPopTimeout(t *testing.T) {
 	rc.Del("list1", "list2")
 }
 
+// TestBRPopTimeout2 is the same as TestBRPop, but expects a value.
+func TestBRPopTimeout2(t *testing.T) {
+	rc.Del("list1", "list2")
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		rc.LPush("list1", "a", "b", "c")
+	}()
+	if k, v, err := rc.BRPop(1, "list1", "list2"); err != nil {
+		t.Error(err)
+	} else if k != "list1" || v != "a" {
+		t.Error(errUnexpected("k=" + k + " v=" + v))
+	}
+	rc.Del("list1", "list2")
+}
+
 // TestBRPopLPush takes last item of a list and inserts into another.
 func TestBRPopLPush(t *testing.T) {
 	rc.Del("list1", "list2")
