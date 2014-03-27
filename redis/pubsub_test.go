@@ -42,8 +42,7 @@ func TestPubSub(t *testing.T) {
 
 	err := rcPubSub.Subscribe(k, ch, stop)
 	if err != nil {
-		t.Error(err)
-		return
+		t.Fatal(err)
 	}
 
 	kids := make(chan bool)
@@ -77,7 +76,6 @@ func TestPubSub(t *testing.T) {
 	<-kids
 
 	if counter > 0 {
-		t.Error("Failed to parse PubSub messages ", counter)
-		return
+		t.Fatal("Failed to parse PubSub messages ", counter)
 	}
 }
