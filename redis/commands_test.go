@@ -710,6 +710,28 @@ func TestSMembers(t *testing.T) {
   }
 }
 
+func TestSIsMember(t *testing.T) {
+  k := randomString(1024)
+  defer rc.Del(k)
+  rc.SAdd(k, "setuno")
+
+  isMember, err := rc.SIsMember(k, "setuno")
+  if err != nil {
+    t.Fatal(err)
+  }
+  if isMember != 1 {
+    t.Fatalf(errUnexpected, isMember)
+  }
+
+  isNoMember, err := rc.SIsMember(k, "setdue")
+  if err != nil {
+    t.Fatal(err)
+  }
+  if isNoMember != 0 {
+    t.Fatalf(errUnexpected, isMember)
+  }
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
   k := randomString(1024)
