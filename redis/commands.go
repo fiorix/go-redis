@@ -762,6 +762,15 @@ func (c *Client) SMembers(key string) ([]string, error) {
   return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/sismember
+func (c *Client) SIsMember(key string, vs ...interface{}) (int, error) {
+  v, err := c.execWithKey(true, "SISMEMBER", key, vs...)
+  if err != nil {
+    return 0, err
+  }
+  return iface2int(v)
+}
+
 type PubSubMessage struct {
   Error   error
   Value   string
