@@ -77,7 +77,5 @@ changed later. If that is required, make a new connection.
 
 Thanks to (in no particular order):
 
-- [Gleicon Moraes](https://github.com/gleicon) for all the drama.
-- [Lucas Fontes](https://github.com/lxfontes) for implementing new commands.
 - [gomemcache](https://github.com/bradfitz/gomemcache): for the skeleton of
 this client library.
