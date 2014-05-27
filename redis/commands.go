@@ -718,6 +718,16 @@ func (c *Client) SAdd(key string, vs ...interface{}) (int, error) {
   return iface2int(v)
 }
 
+// http://redis.io/commands/srem
+func (c *Client) SRem(key string, vs ...interface{}) (int, error) {
+  v, err := c.execWithKey(true, "SREM", key, vs...)
+
+  if err != nil {
+    return 0, err
+  }
+  return iface2int(v)
+}
+
 // http://redis.io/commands/script-load
 func (c *Client) ScriptLoad(script string) (string, error) {
   v, err := c.execOnFirst(true, "SCRIPT", "LOAD", script)

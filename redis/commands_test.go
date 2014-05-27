@@ -696,6 +696,34 @@ func TestSAdd(t *testing.T) {
   }
 }
 
+func TestSRem(t *testing.T) {
+  k := randomString(1024)
+  defer rc.Del(k)
+
+  //singles
+  for i := 0; i < 10; i++ {
+    v := randomString(32)
+    _, err := rc.SRem(k, v)
+    if err != nil {
+      t.Fatal(err)
+    }
+  }
+
+  _, err := rc.SAdd(k, "setuno", "setdue")
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  n, err := rc.SRem(k, "setuno", "setdue")
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if n != 2 {
+    t.Fatal("Failed to remove entries via SREM")
+  }
+}
+
 func TestSMembers(t *testing.T) {
   k := randomString(1024)
   defer rc.Del(k)
