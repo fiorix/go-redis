@@ -762,6 +762,20 @@ func (c *Client) SMembers(key string) ([]string, error) {
   return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/srandmember
+func (c *Client) SRandMember(key string, count int) ([]string, error) {
+
+  var v interface{}
+  var err error
+
+  v, err = c.execWithKey(true, "SRANDMEMBER", key, count)
+
+  if err != nil {
+    return []string{}, err
+  }
+  return iface2vstr(v), nil
+}
+
 // http://redis.io/commands/sismember
 func (c *Client) SIsMember(key string, vs ...interface{}) (int, error) {
   v, err := c.execWithKey(true, "SISMEMBER", key, vs...)
