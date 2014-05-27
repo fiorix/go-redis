@@ -733,6 +733,15 @@ func (c *Client) Set(key, value string) (err error) {
   return
 }
 
+// http://redis.io/commands/setnx
+func (c *Client) SetNx(key, value string) (int, error) {
+  v, err := c.execWithKey(true, "SETNX", key, value)
+  if err != nil {
+    return 0, err
+  }
+  return iface2int(v)
+}
+
 // http://redis.io/commands/setbit
 func (c *Client) SetBit(key string, offset, value int) (int, error) {
   v, err := c.execWithKey(true, "SETBIT", key, offset, value)
