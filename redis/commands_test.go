@@ -779,6 +779,28 @@ func TestSetEx(t *testing.T) {
   }
 }
 
+func TestSetNx(t *testing.T) {
+  k := randomString(16)
+  defer rc.Del(k)
+  ok, err := rc.SetNx(k, "foobar")
+  if err != nil {
+    t.Fatal(err)
+  }
+  if ok != 1 {
+    t.Fatal("Key Already exists")
+  }
+
+  ok, err = rc.SetNx(k, "foobar")
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if ok != 0 {
+    t.Fatal("Key shouldnt be allowed")
+  }
+
+}
+
 func TestPing(t *testing.T) {
   if err := rc.Ping(); err != nil {
     t.Fatal(err)
