@@ -710,6 +710,29 @@ func TestSMembers(t *testing.T) {
   }
 }
 
+func TestSRandMember(t *testing.T) {
+  k := randomString(1024)
+  defer rc.Del(k)
+  rc.SAdd(k, "setuno", "setdue")
+  members, err := rc.SRandMember(k, 1)
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if len(members) != 1 {
+    t.Fatalf(errUnexpected, len(members))
+  }
+
+  members, err = rc.SRandMember(k, 2)
+  if err != nil {
+    t.Fatal(err)
+  }
+
+  if len(members) != 2 {
+    t.Fatalf(errUnexpected, len(members))
+  }
+}
+
 func TestSIsMember(t *testing.T) {
   k := randomString(1024)
   defer rc.Del(k)
