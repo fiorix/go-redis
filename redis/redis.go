@@ -326,6 +326,7 @@ func (c *Client) execWithAddr(urp bool, srv ServerInfo, a ...interface{}) (v int
 	} else {
 		return c.execute(cn.rw, a...)
 	}
+	return
 }
 
 // execWithAddrTimeout executes a command in a specific redis server,
@@ -342,6 +343,7 @@ func (c *Client) execWithAddrTimeout(urp bool, srv ServerInfo, timeout int, a ..
 	} else {
 		return c.execute(cn.rw, a...)
 	}
+	return
 }
 
 // execute sends a command to redis, then reads and parses the response.
