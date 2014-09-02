@@ -783,6 +783,37 @@ func TestSIsMember(t *testing.T) {
   }
 }
 
+func TestSCard(t *testing.T) {
+  k := randomString(1024)
+  defer rc.Del(k)
+
+  cardinalityOfZero, err := rc.SCard(k)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if cardinalityOfZero != 0 {
+    t.Fatalf(errUnexpected, cardinalityOfZero)
+  }
+
+  rc.SAdd(k, "setuno")
+  cardinalityOfOne, err := rc.SCard(k)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if cardinalityOfOne != 1 {
+    t.Fatalf(errUnexpected, cardinalityOfOne)
+  }
+
+  rc.SAdd(k, "setdue")
+  cardinalityOfTwo, err := rc.SCard(k)
+  if err != nil {
+    t.Fatal(err)
+  }
+  if cardinalityOfTwo != 2 {
+    t.Fatalf(errUnexpected, cardinalityOfTwo)
+  }
+}
+
 // TestSetAndGet sets a key, fetches it, and compare the results.
 func _TestSetAndGet(t *testing.T) {
   k := randomString(1024)
