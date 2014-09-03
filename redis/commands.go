@@ -804,6 +804,15 @@ func (c *Client) SIsMember(key string, vs ...interface{}) (int, error) {
   return iface2int(v)
 }
 
+// http://redis.io/commands/scard
+func (c *Client) SCard(key string) (int, error) {
+  v, err := c.execWithKey(true, "SCARD", key)
+  if err != nil {
+    return 0, err
+  }
+  return iface2int(v)
+}
+
 type PubSubMessage struct {
   Error   error
   Value   string
