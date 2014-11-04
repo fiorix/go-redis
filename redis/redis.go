@@ -293,6 +293,14 @@ func (c *Client) cleanupFreeConn(nc net.Conn) {
 	}
 }
 
+func (c *Client) CloseAll() {
+	for _, cns := range c.freeconn {
+		for _, cn := range cns {
+			c.cleanupFreeConn(cn.nc)
+		}
+	}
+}
+
 // execWithKey picks a server based on the key, and executes a command in redis.
 func (c *Client) execWithKey(urp bool, cmd, key string, a ...interface{}) (v interface{}, err error) {
 	srv, err := c.selector.PickServer(key)
