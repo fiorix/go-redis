@@ -79,6 +79,31 @@ func New(server ...string) *Client {
 	return NewFromSelector(ss)
 }
 
+// Dial returns a redis client using the provided server(s) with equal weight.
+// If a server is listed multiple times, it gets a proportional amount of
+// weight.
+//
+// Dial supports ip:port or /unix/path, and optional *db* and *passwd* arguments.
+// Example:
+//
+//	rc := redis.Dial("ip:port db=N passwd=foobared")
+//	rc := redis.Dial("/tmp/redis.sock db=N passwd=foobared")
+//
+// Only one call to Dial is required. The client connection will handle
+// time outs and make new connections on demand.
+//
+// Dial is similar to New, except that it handles errors.
+func Dial(server ...string) (*Client, error) {
+	ss := new(ServerList)
+	if len(server) == 0 {
+		server = []string{"localhost:6379"}
+	}
+	if err := ss.SetServers(server...); err != nil {
+		return nil, err
+	}
+	return NewFromSelector(ss), nil
+}
+
 // NewFromSelector returns a new Client using the provided ServerSelector.
 func NewFromSelector(ss ServerSelector) *Client {
 	return &Client{selector: ss}
