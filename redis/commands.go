@@ -789,7 +789,7 @@ func (c *Client) SMove(source string, destination string, member string) (int, e
 
 	v, err := c.execWithKey(true, "SMOVE", source, destination, member)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	return iface2int(v)
 }
