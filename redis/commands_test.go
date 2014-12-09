@@ -750,12 +750,12 @@ func TestSMove(t *testing.T) {
 	rc.SAdd(s, v)
 	defer rc.Del(d)
 
-	moved, err := rc.SMove(s, d, v)
+	isMoved, err := rc.SMove(s, d, v)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !moved {
+	if isMoved == 0 {
 		t.Fatal("Failed to move an entry via SMOVE")
 	}
 

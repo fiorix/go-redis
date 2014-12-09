@@ -785,13 +785,13 @@ func (c *Client) SMembers(key string) ([]string, error) {
 }
 
 // http://redis.io/commands/smove
-func (c *Client) SMove(source string, destination string, member string) (bool, error) {
+func (c *Client) SMove(source string, destination string, member string) (int, error) {
 
 	v, err := c.execWithKey(true, "SMOVE", source, destination, member)
 	if err != nil {
 		return false, err
 	}
-	return iface2bool(v)
+	return iface2int(v)
 }
 
 // http://redis.io/commands/srandmember
