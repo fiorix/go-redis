@@ -784,6 +784,16 @@ func (c *Client) SMembers(key string) ([]string, error) {
 	return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/smove
+func (c *Client) SMove(source string, destination string, member string) (int, error) {
+
+	v, err := c.execWithKey(true, "SMOVE", source, destination, member)
+	if err != nil {
+		return false, err
+	}
+	return iface2int(v)
+}
+
 // http://redis.io/commands/srandmember
 func (c *Client) SRandMember(key string, count int) ([]string, error) {
 
