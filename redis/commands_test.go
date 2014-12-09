@@ -743,6 +743,33 @@ func TestSMembers(t *testing.T) {
 	}
 }
 
+func TestSMove(t *testing.T) {
+	s := randomString(1024)
+	d := randomString(1024)
+	v := "setuno"
+	rc.SAdd(s, v)
+	defer rc.Del(d)
+
+	moved, err := rc.SMove(s, d, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !moved {
+		t.Fatal("Failed to move an entry via SMOVE")
+	}
+
+	isMember, _ := rc.SIsMember(s, v)
+	if isMember == 1 {
+		t.Fatal("Failed to move an entry via SMOVE")
+	}
+
+	isMember, _ = rc.SIsMember(d, v)
+	if isMember == 0 {
+		t.Fatal("Failed to move an entry via SMOVE")
+	}
+}
+
 func TestSRandMember(t *testing.T) {
 	k := randomString(1024)
 	defer rc.Del(k)
