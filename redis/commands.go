@@ -999,6 +999,16 @@ func (c *Client) ZRem(key string, vs ...interface{}) (int, error) {
 	return iface2int(v)
 }
 
+// http://redis.io/commands/zremrangebyscore
+func (c *Client) ZRemRangeByScore(key string, start interface{}, stop interface{}) (int, error) {
+	v, err := c.execWithKey(true, "ZREMRANGEBYSCORE", key, start, stop)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
 // GetMulti is a batch version of Get. The returned map from keys to
 // items may have fewer elements than the input slice, due to memcache
 // cache misses. Each key must be at most 250 bytes in length.

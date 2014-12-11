@@ -1035,6 +1035,20 @@ func TestZRem(t *testing.T) {
 	}
 }
 
+// Test ZRemRangeByScore
+func TestZRemRangeByScore(t *testing.T) {
+	rc.Del("myzset")
+	defer rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	}
+	if n, err := rc.ZRemRangeByScore("myzset", "-inf", "(2"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if n != 1 {
+		t.Fatalf(errUnexpected, n)
+	}
+}
+
 // Test ZRange
 func TestZRange(t *testing.T) {
 	rc.Del("myzset")
