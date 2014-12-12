@@ -515,6 +515,100 @@ func (c *Client) Keys(pattern string) ([]string, error) {
 	return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/scan
+func (c *Client) Scan(cursor string, options ...interface{}) (string, []string, error) {
+	return c.scanCommandList("SCAN", "", cursor, options...)
+}
+
+// http://redis.io/commands/sscan
+func (c *Client) SScan(set string, cursor string, options ...interface{}) (string, []string, error) {
+	return c.scanCommandList("SSCAN", set, cursor, options...)
+}
+
+// http://redis.io/commands/zscan
+func (c *Client) ZScan(zset string, cursor string, options ...interface{}) (string, map[string]string, error) {
+	return c.scanCommandMap("ZSCAN", zset, cursor, options...)
+}
+
+// http://redis.io/commands/hscan
+func (c *Client) HScan(hash string, cursor string, options ...interface{}) (string, map[string]string, error) {
+	return c.scanCommandMap("HSCAN", hash, cursor, options...)
+}
+
+// scanCommandList
+// SCAN and SSCAN
+func (c *Client) scanCommandList(cmd string, key string, cursor string, options ...interface{}) (string, []string, error) {
+	empty := []string{}
+	resp := []interface{}{}
+	newCursor := "0"
+
+	var v interface{}
+	var err error
+
+	if len(key) > 0 { // SSCAN
+		x := []interface{}{cursor}
+		v, err = c.execWithKey(true, cmd, key, append(x, options...)...)
+	} else { // SCAN
+		x := []interface{}{cmd, cursor}
+		v, err = c.execOnFirst(true, append(x, options...)...)
+	}
+
+	if err != nil {
+		return newCursor, empty, err
+	}
+
+	switch v.(type) {
+	case []interface{}:
+		resp = v.([]interface{})
+	}
+
+	// New cursor to call
+	switch resp[0].(type) {
+	case string:
+		newCursor = resp[0].(string)
+	}
+
+	switch resp[1].(type) {
+	case []interface{}:
+		return newCursor, iface2vstr(resp[1]), nil
+	}
+
+	return newCursor, empty, nil
+}
+
+// scanCommandMap
+// ZSCAN and HSCAN
+func (c *Client) scanCommandMap(cmd string, key string, cursor string, options ...interface{}) (string, map[string]string, error) {
+	empty := map[string]string{}
+	resp := []interface{}{}
+	newCursor := "0"
+
+	x := []interface{}{cursor}
+	v, err := c.execWithKey(true, cmd, key, append(x, options...)...)
+
+	if err != nil {
+		return newCursor, empty, err
+	}
+
+	switch v.(type) {
+	case []interface{}:
+		resp = v.([]interface{})
+	}
+
+	// New cursor to call
+	switch resp[0].(type) {
+	case string:
+		newCursor = resp[0].(string)
+	}
+
+	switch resp[1].(type) {
+	case []interface{}:
+		return newCursor, iface2strmap(resp[1]), nil
+	}
+
+	return newCursor, empty, nil
+}
+
 // http://redis.io/commands/lpush
 func (c *Client) LPush(key string, values ...string) (int, error) {
 	v, err := c.execWithKey(true, "LPUSH", key, vstr2iface(values)...)
