@@ -104,3 +104,9 @@ func autoconv_args(a []interface{}) []string {
 	}
 	return s
 }
+
+// str2int
+
+func str2int(a string) (int, error) {
+	return strconv.Atoi(a)
+}

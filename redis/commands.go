@@ -696,6 +696,44 @@ func (c *Client) MSet(items map[string]string) error {
 	return nil
 }
 
+// http://redis.io/commands/pfadd
+func (c *Client) PFAdd(key string, vs ...interface{}) (int, error) {
+	v, err := c.execWithKey(true, "PFADD", key, vs...)
+
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
+// http://redis.io/commands/pfcount
+func (c *Client) PFCount(keys ...string) (int, error) {
+	v, err := c.execWithKeys(true, "PFCOUNT", keys)
+	if err != nil {
+		return 0, err
+	}
+	sum := 0
+
+	if len(v) == 0 {
+		return 0, nil
+	}
+
+	for _, value := range v {
+		a, err := iface2int(value)
+		if err != nil {
+			return 0, err
+		}
+		sum += a
+	}
+	return iface2int(sum)
+}
+
+// http://redis.io/commands/pfmerge
+func (c *Client) PFMerge(keys ...string) (err error) {
+	_, err = c.execWithKeys(true, "PFMERGE", keys)
+	return
+}
+
 // http://redis.io/commands/publish
 func (c *Client) Publish(channel string, value string) error {
 	_, err := c.execWithKey(true, "PUBLISH", channel, value)

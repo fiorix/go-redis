@@ -1111,6 +1111,73 @@ func TestZCount(t *testing.T) {
 	}
 }
 
+// Test PFAdd
+func TestPFAdd(t *testing.T) {
+	k := randomString(1024)
+	defer rc.Del(k)
+
+	//singles
+	for i := 0; i < 10; i++ {
+		v := randomString(32)
+		_, err := rc.PFAdd(k, v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	//multiple
+	_, err := rc.PFAdd(k, "setuno", "setdue")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPFCount(t *testing.T) {
+	k := randomString(1024)
+	defer rc.Del(k)
+
+	// add some stuff for 1 key
+	_, err := rc.PFAdd(k, "one", "two", "three")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v, err := rc.PFCount(k)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != 3 {
+		t.Fatal("Wrong item count")
+	}
+}
+
+func TestPFMerge(t *testing.T) {
+	k1 := randomString(1024)
+	defer rc.Del(k1)
+
+	k2 := randomString(1024)
+	defer rc.Del(k2)
+
+	// add some stuff for 1 key
+	_, err := rc.PFAdd(k1, "one", "two", "three")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// add some stuff for another key
+	_, err = rc.PFAdd(k2, "four", "five", "six")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = rc.PFMerge(k1, k2)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Benchmark plain Set
 func BenchmarkSet(b *testing.B) {
 	for i := 0; i < b.N; i++ {

@@ -323,7 +323,7 @@ func (c *Client) execWithKeyTimeout(urp bool, timeout int, cmd, key string, a ..
 }
 
 // execWithKeys calls execWithKey for each key, returns an array of results.
-func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...interface{}) (v interface{}, err error) {
+func (c *Client) execWithKeys(urp bool, cmd string, keys []string, a ...interface{}) (v []interface{}, err error) {
 	var r []interface{}
 	for _, k := range keys {
 		if tmp, e := c.execWithKey(urp, cmd, k, a...); e != nil {
