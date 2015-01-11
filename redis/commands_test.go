@@ -681,6 +681,133 @@ func TestKeys(t *testing.T) {
 	}
 }
 
+func TestScan(t *testing.T) {
+	rc.MSet(map[string]string{
+		"TESTSCANone": "1", "TESTSCANtwo": "2", "TESTSCANthree": "3", "TESTSCANfour": "4",
+	})
+
+	defer rc.Del("TESTSCANone", "TESTSCANtwo", "TESTSCANthree", "TESTSCANfour")
+
+	var res []string
+	var c string = "0"
+
+	for {
+		cursor, keys, err := rc.Scan(c, "match", "TESTSCAN*")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, k := range keys {
+			res = append(res, k)
+		}
+
+		if cursor == "0" {
+			break
+		}
+
+		c = cursor // update cursor
+	}
+
+	if len(res) != 4 {
+		t.Fatalf(errUnexpected, res)
+	}
+}
+
+func TestSScan(t *testing.T) {
+	rc.SAdd("myset", "TESTSCANone", "TESTSCANtwo", "TESTSCANthree", "TESTSCANfour")
+
+	defer rc.Del("myset")
+
+	var res []string
+	var c string = "0"
+
+	for {
+		cursor, keys, err := rc.SScan("myset", c, "match", "TESTSCAN*")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, k := range keys {
+			res = append(res, k)
+		}
+
+		if cursor == "0" {
+			break
+		}
+
+		c = cursor // update cursor
+	}
+
+	if len(res) != 4 {
+		t.Fatalf(errUnexpected, res)
+	}
+}
+
+func TestHScan(t *testing.T) {
+	rc.HMSet("mykey", map[string]string{
+		"TESTSCANone":   "1",
+		"TESTSCANtwo":   "2",
+		"TESTSCANthree": "3",
+		"TESTSCANfour":  "4",
+	})
+
+	defer rc.Del("mykey")
+
+	var res []string
+	var c string = "0"
+
+	for {
+		cursor, keys, err := rc.HScan("mykey", c, "match", "TESTSCAN*")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, k := range keys {
+			res = append(res, k)
+		}
+
+		if cursor == "0" {
+			break
+		}
+
+		c = cursor // update cursor
+	}
+
+	if len(res) != 4 {
+		t.Fatalf(errUnexpected, res)
+	}
+}
+
+func TestZScan(t *testing.T) {
+	rc.ZAdd("myzset", 1, "TESTSCANone", 2, "TESTSCANtwo", 3, "TESTSCANthree", 4, "TESTSCANfour")
+
+	defer rc.Del("myzset")
+
+	var res []string
+	var c string = "0"
+
+	for {
+		cursor, keys, err := rc.ZScan("myzset", c, "match", "TESTSCAN*")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, k := range keys {
+			res = append(res, k)
+		}
+
+		if cursor == "0" {
+			break
+		}
+
+		c = cursor // update cursor
+	}
+
+	if len(res) != 4 {
+		t.Fatalf(errUnexpected, res)
+	}
+}
+
 func TestSAdd(t *testing.T) {
 	k := randomString(1024)
 	defer rc.Del(k)
@@ -1031,6 +1158,20 @@ func TestZRem(t *testing.T) {
 	if n, err := rc.ZRem("myzset", "beavis", "butthead", "professor_buzzcut"); err != nil {
 		t.Fatalf(errUnexpected, err)
 	} else if n != 3 {
+		t.Fatalf(errUnexpected, n)
+	}
+}
+
+// Test ZRemRangeByScore
+func TestZRemRangeByScore(t *testing.T) {
+	rc.Del("myzset")
+	defer rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	}
+	if n, err := rc.ZRemRangeByScore("myzset", "-inf", "(2"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if n != 1 {
 		t.Fatalf(errUnexpected, n)
 	}
 }
