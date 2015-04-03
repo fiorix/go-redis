@@ -190,6 +190,24 @@ func TestLRange(t *testing.T) {
 	}
 }
 
+func TestLRem(t *testing.T) {
+	rc.Del("list1")
+	defer rc.Del("list1")
+	rc.RPush("list1", "a", "b", "c", "d", "c")
+
+	if v, err := rc.LRem("list1", 2, "c"); err != nil {
+		t.Fatal(err)
+	} else if v != 2 {
+		t.Fatalf(errUnexpected, "LRem test1 return value")
+	}
+
+	if v, err := rc.LLen("list1"); err != nil {
+		t.Fatal(err)
+	} else if v != 3 {
+		t.Fatalf(errUnexpected, "LRem test1 length")
+	}
+}
+
 // TestBLPop reproduces the example from http://redis.io/commands/blpop.
 func TestBLPop(t *testing.T) {
 	rc.Del("list1", "list2")

@@ -669,6 +669,15 @@ func (c *Client) LRange(key string, begin, end int) ([]string, error) {
 	return iface2vstr(v), nil
 }
 
+// http://redis.io/commands/lrem
+func (c *Client) LRem(key string, count int, value string) (int, error) {
+	v, err := c.execWithKey(true, "LREM", key, count, value)
+	if err != nil {
+		return 0, err
+	}
+	return iface2int(v)
+}
+
 // http://redis.io/commands/hget
 func (c *Client) HGet(key, member string) (string, error) {
 	v, err := c.execWithKey(true, "HGET", key, member)
