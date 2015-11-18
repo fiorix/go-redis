@@ -1,4 +1,4 @@
-// Copyright 2013-2014 go-redis authors.  All rights reserved.
+// Copyright 2013-2015 go-redis authors.  All rights reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,12 +15,9 @@
 package redis
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 )
-
-var ErrInvalidType = errors.New("Invalid type for convertion")
 
 // vstr2iface converts an array of strings to an array of empty interfaces
 func vstr2iface(a []string) (r []interface{}) {
@@ -62,11 +59,10 @@ func iface2bool(a interface{}) (bool, error) {
 	case int:
 		if a.(int) == 1 {
 			return true, nil
-		} else {
-			return false, nil
 		}
+		return false, nil
 	}
-	return false, ErrInvalidType
+	return false, fmt.Errorf("redis: %#v is not boolean", a)
 }
 
 // iface2int validates and converts interface to int
@@ -75,7 +71,7 @@ func iface2int(a interface{}) (int, error) {
 	case int:
 		return a.(int), nil
 	}
-	return 0, ErrInvalidType
+	return 0, fmt.Errorf("redis: %#v is not integer", a)
 }
 
 // iface2str validates and converts interface to string
@@ -84,12 +80,12 @@ func iface2str(a interface{}) (string, error) {
 	case string:
 		return a.(string), nil
 	}
-	return "", ErrInvalidType
+	return "", fmt.Errorf("redis: %#v is not string", a)
 }
 
-// autoconv_args converts commands' arguments from multiple types to string,
+// viface2vstr converts commands' arguments from multiple types to string,
 // so they can be sent to the server. e.g. rc.IncrBy("k", 1) -> "k", "1"
-func autoconv_args(a []interface{}) []string {
+func viface2vstr(a []interface{}) []string {
 	s := make([]string, len(a))
 	for n, item := range a {
 		switch item.(type) {
@@ -99,14 +95,8 @@ func autoconv_args(a []interface{}) []string {
 			s[n] = item.(string)
 		default:
 			// TODO: use iface2n, maybe
-			panic(fmt.Sprintf("Unsupported argument type for convertion: %#v", item))
+			panic(fmt.Sprintf("redis: unsupported parameter type: %#v", item))
 		}
 	}
 	return s
-}
-
-// str2int
-
-func str2int(a string) (int, error) {
-	return strconv.Atoi(a)
 }

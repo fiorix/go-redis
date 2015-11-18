@@ -1,12 +1,13 @@
-language: go
-go:
-        - 1.1
-        - 1.2
-        - release
-        - tip
-before_script:
-        - cd redis
-script:
-        - go test -v
 services:
         - redis
+
+language: go
+
+go:
+        - 1.4.2
+        - 1.4.3
+        - 1.5
+        - 1.5.1
+
+script:
+        - go test -v ./redis

@@ -1,4 +1,4 @@
-// Copyright 2013-2014 go-redis authors.  All rights reserved.
+// Copyright 2013-2015 go-redis authors.  All rights reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -14,24 +14,7 @@
 
 package redis
 
-import (
-	"math/rand"
-	"testing"
-	"time"
-)
-
-// TODO: sort tests by dependency (set first, etc)
-
-// rc is the redis client handler used for all tests.
-// Make sure redis-server is running before starting the tests.
-var rcPubSub *Client
-
-func init() {
-	rcPubSub = New("127.0.0.1:6379")
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-// Tests
+import "testing"
 
 func TestPubSub(t *testing.T) {
 	k := randomString(16)
@@ -39,8 +22,7 @@ func TestPubSub(t *testing.T) {
 
 	ch := make(chan PubSubMessage)
 	stop := make(chan bool)
-
-	err := rcPubSub.Subscribe(k, ch, stop)
+	err := rc.Subscribe(k, ch, stop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,14 +45,14 @@ func TestPubSub(t *testing.T) {
 
 	go func() {
 		for i := counter; i > 0; i-- {
-			err := rcPubSub.Publish(k, v)
+			err := rc.Publish(k, v)
 			if err != nil {
 				t.Error(err)
 				return
 			}
 			counter--
 		}
-		stop <- true
+		close(stop)
 	}()
 
 	<-kids

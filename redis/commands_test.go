@@ -1,4 +1,4 @@
-// Copyright 2013-2014 go-redis authors.  All rights reserved.
+// Copyright 2013-2015 go-redis authors.  All rights reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,39 +15,13 @@
 package redis
 
 import (
-	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TODO: sort tests by dependency (set first, etc)
-
-// rc is the redis client handler used for all tests.
-// Make sure redis-server is running before starting the tests.
-var rc *Client
-
-func init() {
-	rc = New("127.0.0.1:6379")
-	rand.Seed(time.Now().UTC().UnixNano())
-}
-
-func randomString(l int) string {
-	bytes := make([]byte, l)
-	for i := 0; i < l; i++ {
-		bytes[i] = byte(randInt(65, 90))
-	}
-	return string(bytes)
-}
-
-func randInt(min int, max int) int {
-	return min + rand.Intn(max-min)
-}
-
 const errUnexpected = "Unexpected response from redis-server: %#v"
-
-// Tests
 
 func TestPublish(t *testing.T) {
 	k := randomString(16)
@@ -71,7 +45,7 @@ func TestAppend(t *testing.T) {
 }
 
 // TestBgRewriteAOF starts an Append Only File rewrite process.
-func __TestBgRewriteAOF(t *testing.T) {
+func dontTestBgRewriteAOF(t *testing.T) {
 	if status, err := rc.BgRewriteAOF(); err != nil {
 		t.Fatal(err)
 	} else if status != "Background append only file rewriting started" {
@@ -80,7 +54,7 @@ func __TestBgRewriteAOF(t *testing.T) {
 }
 
 // TestBgSave saves the DB in background.
-func __TestBgSave(t *testing.T) {
+func dontTestBgSave(t *testing.T) {
 	if status, err := rc.BgSave(); err != nil {
 		t.Fatal(err)
 	} else if status != "Background saving started" {
@@ -194,7 +168,6 @@ func TestLRem(t *testing.T) {
 	rc.Del("list1")
 	defer rc.Del("list1")
 	rc.RPush("list1", "a", "b", "c", "d", "c")
-
 	if v, err := rc.LRem("list1", 2, "c"); err != nil {
 		t.Fatal(err)
 	} else if v != 2 {
@@ -368,15 +341,15 @@ func TestDBSize(t *testing.T) {
 	}
 	rc.Set("test-db-size", "zzz")
 	defer rc.Del("test-db-size")
-	if new_size, err := rc.DBSize(); err != nil {
+	if newsize, err := rc.DBSize(); err != nil {
 		t.Fatalf(errUnexpected, err)
-	} else if new_size != size+1 {
-		t.Fatalf(errUnexpected, new_size)
+	} else if newsize != size+1 {
+		t.Fatalf(errUnexpected, newsize)
 	}
 }
 
 // TestDebugSegfault crashes redis and breaks everything else.
-func __TestDebugSegfault(t *testing.T) {
+func dontTestDebugSegfault(t *testing.T) {
 	if err := rc.DebugSegfault(); err != nil {
 		t.Fatal(err)
 	}
@@ -703,12 +676,10 @@ func TestScan(t *testing.T) {
 	rc.MSet(map[string]string{
 		"TESTSCANone": "1", "TESTSCANtwo": "2", "TESTSCANthree": "3", "TESTSCANfour": "4",
 	})
-
 	defer rc.Del("TESTSCANone", "TESTSCANtwo", "TESTSCANthree", "TESTSCANfour")
 
+	c := "0"
 	var res []string
-	var c string = "0"
-
 	for {
 		cursor, keys, err := rc.Scan(c, "match", "TESTSCAN*")
 		if err != nil {
@@ -733,12 +704,10 @@ func TestScan(t *testing.T) {
 
 func TestSScan(t *testing.T) {
 	rc.SAdd("myset", "TESTSCANone", "TESTSCANtwo", "TESTSCANthree", "TESTSCANfour")
-
 	defer rc.Del("myset")
 
+	c := "0"
 	var res []string
-	var c string = "0"
-
 	for {
 		cursor, keys, err := rc.SScan("myset", c, "match", "TESTSCAN*")
 		if err != nil {
@@ -768,12 +737,10 @@ func TestHScan(t *testing.T) {
 		"TESTSCANthree": "3",
 		"TESTSCANfour":  "4",
 	})
-
 	defer rc.Del("mykey")
 
+	c := "0"
 	var res []string
-	var c string = "0"
-
 	for {
 		cursor, keys, err := rc.HScan("mykey", c, "match", "TESTSCAN*")
 		if err != nil {
@@ -798,12 +765,10 @@ func TestHScan(t *testing.T) {
 
 func TestZScan(t *testing.T) {
 	rc.ZAdd("myzset", 1, "TESTSCANone", 2, "TESTSCANtwo", 3, "TESTSCANthree", 4, "TESTSCANfour")
-
 	defer rc.Del("myzset")
 
+	c := "0"
 	var res []string
-	var c string = "0"
-
 	for {
 		cursor, keys, err := rc.ZScan("myzset", c, "match", "TESTSCAN*")
 		if err != nil {

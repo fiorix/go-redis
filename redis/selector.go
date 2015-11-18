@@ -1,4 +1,4 @@
-// Copyright 2013-2014 go-redis authors.  All rights reserved.
+// Copyright 2013-2015 go-redis authors.  All rights reserved.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ type ServerSelector interface {
 	Sharding() bool
 }
 
-// ServerInfo stores parsed the server information, ip:port, dbid and passwd.
+// ServerInfo stores parsed the server information.
 type ServerInfo struct {
 	Addr   net.Addr
 	DB     string
@@ -97,9 +97,8 @@ func (ss *ServerList) SetServers(servers ...string) error {
 			return fmt.Errorf(
 				"Invalid redis server '%s': %s",
 				server, err)
-		} else {
-			nsrv[i].Addr = addr
 		}
+		nsrv[i].Addr = addr
 		// parse connection options
 		if len(items) > 1 {
 			if err := parseOptions(&nsrv[i], items[1:]); err != nil {
@@ -120,10 +119,12 @@ func (ss *ServerList) SetServers(servers ...string) error {
 	return nil
 }
 
+// Sharding implements the ServerSelector interface.
 func (ss *ServerList) Sharding() bool {
 	return ss.sharding
 }
 
+// PickServer implements the ServerSelector interface.
 func (ss *ServerList) PickServer(key string) (srv ServerInfo, err error) {
 	ss.lk.RLock()
 	defer ss.lk.RUnlock()
@@ -132,9 +133,7 @@ func (ss *ServerList) PickServer(key string) (srv ServerInfo, err error) {
 		return
 	}
 	if key == "" {
-		srv = ss.servers[0]
-	} else {
-		srv = ss.servers[crc32.ChecksumIEEE([]byte(key))%uint32(len(ss.servers))]
+		return ss.servers[0], nil
 	}
-	return
+	return ss.servers[crc32.ChecksumIEEE([]byte(key))%uint32(len(ss.servers))], nil
 }
