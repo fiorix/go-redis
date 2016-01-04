@@ -1083,6 +1083,56 @@ func (c *Client) ZRevRange(key string, start int, stop int, withscores bool) ([]
 	return iface2vstr(v), nil
 }
 
+// ZRangeByScore implements http://redis.io/commands/ZRANGEBYSCORE
+func (c *Client) ZRangeByScore(key string, min int, max int, withscores bool, limit bool, offset int, count int) ([]string, error) {
+	var v interface{}
+	var err error
+
+	if withscores == true {
+		if limit {
+			v, err = c.execWithKey(true, "ZRANGEBYSCORE", key, min, max, "WITHSCORES", "LIMIT", offset, count)
+		} else {
+			v, err = c.execWithKey(true, "ZRANGEBYSCORE", key, min, max, "WITHSCORES")
+		}
+	} else {
+		if limit {
+			v, err = c.execWithKey(true, "ZRANGEBYSCORE", key, min, max, "LIMIT", offset, count)
+		} else {
+			v, err = c.execWithKey(true, "ZRANGEBYSCORE", key, min, max)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return iface2vstr(v), nil
+}
+
+// ZRevRangeByScore implements http://redis.io/commands/ZREVRANGEBYSCORE
+func (c *Client) ZRevRangeByScore(key string, max int, min int, withscores bool, limit bool, offset int, count int) ([]string, error) {
+	var v interface{}
+	var err error
+
+	if withscores == true {
+		if limit {
+			v, err = c.execWithKey(true, "ZREVRANGEBYSCORE", key, max, min, "WITHSCORES", "LIMIT", offset, count)
+		} else {
+			v, err = c.execWithKey(true, "ZREVRANGEBYSCORE", key, max, min, "WITHSCORES")
+		}
+	} else {
+		if limit {
+			v, err = c.execWithKey(true, "ZREVRANGEBYSCORE", key, max, min, "LIMIT", offset, count)
+		} else {
+			v, err = c.execWithKey(true, "ZREVRANGEBYSCORE", key, max, min)
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return iface2vstr(v), nil
+}
+
 // ZScore implements http://redis.io/commands/zscore.
 func (c *Client) ZScore(key string, member string) (string, error) {
 	v, err := c.execWithKey(true, "ZSCORE", key, member)

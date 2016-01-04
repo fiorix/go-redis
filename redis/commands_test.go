@@ -1190,17 +1190,87 @@ func TestZRevRange(t *testing.T) {
 		t.Fatalf(errUnexpected, err)
 	}
 
-	if n, err := rc.ZRange("myzset", 0, 1, false); err != nil {
+	if n, err := rc.ZRevRange("myzset", 0, 1, false); err != nil {
 		t.Fatalf(errUnexpected, err)
 	} else if len(n) != 2 {
 		t.Fatalf(errUnexpected, n)
 	}
 
-	if n, err := rc.ZRange("myzset", 0, 1, true); err != nil {
+	if n, err := rc.ZRevRange("myzset", 0, 1, true); err != nil {
 		t.Fatalf(errUnexpected, err)
 	} else if len(n) != 4 {
 		t.Fatalf(errUnexpected, n)
 	} else if n[0] != "professor_buzzcut" && n[2] != "butthead" {
+		t.Fatalf(errUnexpected, n)
+	}
+}
+
+// Test ZRangeByScore
+func TestZRangeByScore(t *testing.T) {
+	rc.Del("myzset")
+	defer rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	}
+
+	if n, err := rc.ZRangeByScore("myzset", 0, 2, false, false, 0, 0); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 2 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "beavis" {
+		t.Fatalf("Wrong sort order, expected 'beavis', got %s", n[0])
+	}
+
+	// get 2 elements WITHSCORES
+	if n, err := rc.ZRangeByScore("myzset", 0, 2, true, false, 0, 0); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 4 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "beavis" && n[2] != "butthead" {
+		t.Fatalf(errUnexpected, n)
+	}
+
+	// ask 3 elements, set a limit of 2 offset from 1 so we test both limit and offset
+	if n, err := rc.ZRangeByScore("myzset", 0, 2, true, true, 1, 2); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 2 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "butthead" {
+		t.Fatalf(errUnexpected, n)
+	}
+}
+
+// Test ZRevRangeByScore
+func TestZRevRangeByScore(t *testing.T) {
+	rc.Del("myzset")
+	defer rc.Del("myzset")
+	if _, err := rc.ZAdd("myzset", 1, "beavis", 2, "butthead", 3, "professor_buzzcut"); err != nil {
+		t.Fatalf(errUnexpected, err)
+	}
+
+	if n, err := rc.ZRevRangeByScore("myzset", 2, 0, false, false, 0, 0); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 2 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "butthead" {
+		t.Fatalf("Wrong sort order, expected 'beavis', got %s", n[0])
+	}
+
+	// get 2 elements WITHSCORES
+	if n, err := rc.ZRevRangeByScore("myzset", 2, 0, true, false, 0, 0); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 4 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "butthead" && n[2] != "beavis" {
+		t.Fatalf(errUnexpected, n)
+	}
+
+	// ask 3 elements, set a limit of 2 offset from 1 so we test both limit and offset
+	if n, err := rc.ZRevRangeByScore("myzset", 2, 0, true, true, 1, 2); err != nil {
+		t.Fatalf(errUnexpected, err)
+	} else if len(n) != 2 {
+		t.Fatalf(errUnexpected, n)
+	} else if n[0] != "beavis" {
 		t.Fatalf(errUnexpected, n)
 	}
 }
