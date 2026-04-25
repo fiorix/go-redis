@@ -34,7 +34,6 @@ func TestPubSub(t *testing.T) {
 		for run {
 			select {
 			case vv := <-ch:
-				//fmt.Println(vv.Channel, vv.Value, vv.Error)
 				if vv.Error != nil {
 					run = false
 				}

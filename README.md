@@ -14,29 +14,21 @@ Licensed under the Apache License, Version 2.0.
 
 ## Status
 
-The library is stable and has been extensively tested on
-[freegeoip.net](http://freegeoip.net) as the underlying quota mechanism
-on Redis. It has served dozens of billions of queries that used this library
-to manage usage.
+The library is stable. It was the quota backend for the freegeoip.net
+service (now retired) and handled billions of queries in production
+over its lifetime.
 
-It is incomplete, though. Me, [@gleicon](https://github.com/gleicon),
-[@lxfontes](https://github.com/lxfontes) and others have only implemented the
-commands we needed for our applications so far, and continue doing so with no
-rush or schedule.
-See [commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
-for a list of supported commands - they're in alphabetical order. Contributors
-are welcome.
-
-We've written other Redis client libraries before, also very stable and used
-in large deployments by major companies.
+Coverage is partial: only the commands needed by the original authors
+and contributors have been implemented. See
+[commands.go](https://github.com/fiorix/go-redis/blob/master/redis/commands.go)
+for the current list, in alphabetical order. Pull requests are welcome.
 
 [![CI](https://github.com/fiorix/go-redis/actions/workflows/ci.yml/badge.svg)](https://github.com/fiorix/go-redis/actions/workflows/ci.yml)
 
 
 ## Installing
 
-Make sure Go is installed, and both $GOROOT and $GOPATH are set, then
-run:
+Requires Go 1.23 or newer. In a module-enabled project:
 
 	$ go get github.com/fiorix/go-redis/redis
 
@@ -55,12 +47,14 @@ Hello world:
 		...
 	}
 
-When connected to multiple servers, commands such as PING, INFO and
-similar are only executed on the first server. GET, SET and others are
-distributed by their key.
+When connected to multiple servers, keyed commands (GET, SET, etc.)
+are sharded across the configured servers using CRC32 of the key.
+Commands that are not bound to a key (PING, INFO, and similar) run
+on the first listed server only; they are marked "Cannot be sharded"
+in their doc strings.
 
-New connections are created on demand, and stay available in the connection
-pool until they time out. The library scales very well under high load.
+New connections are created on demand and stay available in the
+connection pool until they are closed or time out.
 
 
 ### Unix socket, dbid and password support

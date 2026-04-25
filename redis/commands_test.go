@@ -31,7 +31,7 @@ func TestPublish(t *testing.T) {
 	}
 }
 
-// TestAppend appends " World" to "Hello" and expects the lenght to be 11.
+// TestAppend appends " World" to "Hello" and expects the length to be 11.
 func TestAppend(t *testing.T) {
 	defer rc.Del("foobar")
 	if _, err := rc.Append("foobar", "Hello"); err != nil {
@@ -41,24 +41,6 @@ func TestAppend(t *testing.T) {
 		t.Fatal(err)
 	} else if n != 11 {
 		t.Fatalf(errUnexpected, n)
-	}
-}
-
-// TestBgRewriteAOF starts an Append Only File rewrite process.
-func dontTestBgRewriteAOF(t *testing.T) {
-	if status, err := rc.BgRewriteAOF(); err != nil {
-		t.Fatal(err)
-	} else if status != "Background append only file rewriting started" {
-		t.Fatalf(errUnexpected, status)
-	}
-}
-
-// TestBgSave saves the DB in background.
-func dontTestBgSave(t *testing.T) {
-	if status, err := rc.BgSave(); err != nil {
-		t.Fatal(err)
-	} else if status != "Background saving started" {
-		t.Fatalf(errUnexpected, status)
 	}
 }
 
@@ -432,8 +414,6 @@ func TestDel(t *testing.T) {
 	}
 }
 
-// TODO: TestDiscard
-
 // TestDump exercises DUMP and RESTORE as a roundtrip.
 // Avoids asserting the exact serialized payload, whose RDB version
 // byte has been bumped multiple times since this test was written.
@@ -473,7 +453,6 @@ func TestEcho(t *testing.T) {
 }
 
 // TestEval tests server side Lua script.
-// TODO: fix the response.
 func TestEval(t *testing.T) {
 	if _, err := rc.Eval(
 		"return {1,{2,3,'foo'},KEYS[1],KEYS[2],ARGV[1],ARGV[2]}",
@@ -483,12 +462,10 @@ func TestEval(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	//t.Log("v=%#v\n", v)
 }
 
 // TestEvalSha tests server side Lua script.
 // TestEvalSha preloads the script with ScriptLoad.
-// TODO: fix the response.
 func TestEvalSha(t *testing.T) {
 	sha1, err := rc.ScriptLoad("return {1,{2,3,'foo'},KEYS[1],KEYS[2],ARGV[1],ARGV[2]}")
 	if err != nil {
@@ -502,10 +479,7 @@ func TestEvalSha(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	//t.Log("v=%#v\n", v)
 }
-
-// TODO: TestExec
 
 // TestExists reproduces the example from http://redis.io/commands/exists.
 func TestExists(t *testing.T) {

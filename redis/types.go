@@ -94,7 +94,6 @@ func viface2vstr(a []interface{}) []string {
 		case string:
 			s[n] = item.(string)
 		default:
-			// TODO: use iface2n, maybe
 			panic(fmt.Sprintf("redis: unsupported parameter type: %#v", item))
 		}
 	}

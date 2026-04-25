@@ -14,24 +14,17 @@
 
 package redis
 
-// WORK IN PROGRESS
+// Command wrappers. Each exported method maps to a single Redis
+// command; the URL in the doc string points to the canonical
+// documentation.
 //
-// Redis commands
-//
-// Some commands take an integer timeout, in seconds. It's not a time.Duration
-// because redis only supports seconds resolution for timeouts.
-//
-// Redis allows clients to block indefinitely by setting timeout to 0, but
-// it does not work here. All functions below use the timeout not only to
-// block the operation in redis, but also as a socket read timeout (+delta)
-// to free up system resources.
-//
-// The default TCP read timeout is 200ms. If a timeout is required to
-// be "indefinitely", then set it to something like 86400.
-//
-// See redis.DefaultTimeout for details.
-//
-// 🍺
+// Blocking commands take their timeout as an integer in seconds
+// because the Redis protocol has second resolution. The same value
+// is also applied to the underlying socket read deadline (plus a
+// small delta) so a blocked goroutine cannot hold a connection
+// forever. Callers that want to block for longer should pass a
+// large value such as 86400. Passing 0 is not equivalent to "block
+// forever"; see DefaultTimeout for the fallback behavior.
 
 import (
 	"errors"
@@ -85,7 +78,9 @@ func (c *Client) Ping() error {
 }
 
 // BitCount implements http://redis.io/commands/bitcount.
-// Start and end are ignored if start is a negative number.
+// When start is negative, both start and end are dropped and the
+// command runs over the whole value. Redis rejects half-specified
+// ranges, so the client either sends both or neither.
 func (c *Client) BitCount(key string, start, end int) (int, error) {
 	var (
 		v   interface{}
@@ -135,7 +130,6 @@ func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, 
 		if len(items) != 2 {
 			return "", "", ErrServerError
 		}
-		// TODO: test types
 		k = items[0].(string)
 		v = items[1].(string)
 		return k, v, nil
@@ -146,23 +140,22 @@ func (c *Client) blbrPop(cmd string, timeout int, keys ...string) (k, v string, 
 // BLPop implements http://redis.io/commands/blpop.
 // Cannot be sharded.
 //
-// If timeout is 0, DefaultTimeout is used.
+// Unlike the native BLPOP, timeout=0 does not mean "block forever":
+// the socket deadline falls back to DefaultTimeout so the connection
+// can be reclaimed. Callers that want a long block should pass a
+// large value (e.g. 86400).
 func (c *Client) BLPop(timeout int, keys ...string) (k, v string, err error) {
 	return c.blbrPop("BLPOP", timeout, keys...)
 }
 
 // BRPop implements http://redis.io/commands/brpop.
-// Cannot be sharded.
-//
-// If timeout is 0, DefaultTimeout is used.
+// Cannot be sharded. See BLPop for the timeout=0 caveat.
 func (c *Client) BRPop(timeout int, keys ...string) (k, v string, err error) {
 	return c.blbrPop("BRPOP", timeout, keys...)
 }
 
 // BRPopLPush implements http://redis.io/commands/brpoplpush.
-// Cannot be sharded.
-//
-// If timeout is 0, DefaultTimeout is used.
+// Cannot be sharded. See BLPop for the timeout=0 caveat.
 func (c *Client) BRPopLPush(src, dst string, timeout int) (string, error) {
 	v, err := c.execWithKeyTimeout(true, timeout, "BRPOPLPUSH", src, dst, timeout)
 	if err != nil {
@@ -205,7 +198,8 @@ func (c *Client) ClientList() ([]string, error) {
 // ClientSetName implements http://redis.io/commands/client-setname.
 // Cannot be sharded.
 //
-// This driver creates connections on demand, thus naming them is pointless.
+// The name is set on one pooled connection only; subsequent commands
+// may use a different connection and will not carry this name.
 func (c *Client) ClientSetName(name string) error {
 	v, err := c.execOnFirst(false, "CLIENT SETNAME", name)
 	if err != nil {
@@ -334,9 +328,6 @@ func (c *Client) delPlain(keys ...string) (int, error) {
 	return 0, nil
 }
 
-// http://redis.io/commands/discard
-// TODO: Discard
-
 // Dump implements http://redis.io/commands/dump.
 func (c *Client) Dump(key string) (string, error) {
 	v, err := c.execWithKey(true, "DUMP", key)
@@ -362,7 +353,7 @@ func (c *Client) Echo(message string) (string, error) {
 	return iface2str(v)
 }
 
-// Eval implemenets http://redis.io/commands/eval.
+// Eval implements http://redis.io/commands/eval.
 // Cannot be sharded.
 func (c *Client) Eval(script string, numkeys int, keys, args []string) (interface{}, error) {
 	a := []interface{}{
@@ -395,9 +386,6 @@ func (c *Client) EvalSha(sha1 string, numkeys int, keys, args []string) (interfa
 	}
 	return v, nil
 }
-
-// http://redis.io/commands/exec
-// TODO: Exec
 
 // Exists implements http://redis.io/commands/exists.
 func (c *Client) Exists(key string) (bool, error) {
@@ -501,7 +489,7 @@ func (c *Client) IncrBy(key string, increment int) (int, error) {
 	return iface2int(v)
 }
 
-// Keys implement http://redis.io/commands/keys.
+// Keys implements http://redis.io/commands/keys.
 // Cannot be sharded.
 func (c *Client) Keys(pattern string) ([]string, error) {
 	keys := []string{}
@@ -745,9 +733,7 @@ func (c *Client) ZIncrBy(key string, increment int, member string) (string, erro
 }
 
 // MGet implements http://redis.io/commands/mget.
-// Cannot be sharded.
-//
-// TODO: support sharded connections.
+// Cannot be sharded: the command runs on the first listed server.
 func (c *Client) MGet(keys ...string) ([]string, error) {
 	tmp := make([]interface{}, len(keys)+1)
 	tmp[0] = "MGET"
@@ -774,9 +760,7 @@ func (c *Client) MGet(keys ...string) ([]string, error) {
 }
 
 // MSet implements http://redis.io/commands/mset.
-// Cannot be sharded.
-//
-// TODO: support sharded connections.
+// Cannot be sharded: the command runs on the first listed server.
 func (c *Client) MSet(items map[string]string) error {
 	tmp := make([]interface{}, (len(items)*2)+1)
 	tmp[0] = "MSET"
@@ -1169,45 +1153,3 @@ func (c *Client) ZRemRangeByScore(key string, start interface{}, stop interface{
 	return iface2int(v)
 }
 
-// GetMulti is a batch version of Get. The returned map from keys to
-// items may have fewer elements than the input slice, due to memcache
-// cache misses. Each key must be at most 250 bytes in length.
-// If no error is returned, the returned map will also be non-nil.
-/*
-func (c *Client) GetMulti(keys []string) (map[string]*Item, error) {
-	var lk sync.Mutex
-	m := make(map[string]*Item)
-	addItemToMap := func(it *Item) {
-		lk.Lock()
-		defer lk.Unlock()
-		m[it.Key] = it
-	}
-
-	keyMap := make(map[net.Addr][]string)
-	for _, key := range keys {
-		if !legalKey(key) {
-			return nil, ErrMalformedKey
-		}
-		addr, err := c.selector.PickServer(key)
-		if err != nil {
-			return nil, err
-		}
-		keyMap[addr] = append(keyMap[addr], key)
-	}
-
-	ch := make(chan error, buffered)
-	for addr, keys := range keyMap {
-		go func(addr net.Addr, keys []string) {
-			//ch <- c.getFromAddr(addr, keys, addItemToMap)
-		}(addr, keys)
-	}
-
-	var err error
-	for _ = range keyMap {
-		if ge := <-ch; ge != nil {
-			err = ge
-		}
-	}
-	return m, err
-}
-*/

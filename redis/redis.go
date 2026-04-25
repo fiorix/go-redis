@@ -15,7 +15,16 @@
 // This is a modified version of gomemcache adapted to redis.
 // Original code and license at https://github.com/bradfitz/gomemcache/
 
-// Package redis provides a client for the redis cache server.
+// Package redis provides a client for Redis servers.
+//
+// The client is safe for concurrent use by multiple goroutines.
+// Connections are pooled per server and created on demand; idle
+// connections stay in the pool until they are closed or time out.
+//
+// When configured with multiple servers, the client shards keys
+// across them using CRC32 of the key. Commands that are not bound
+// to a key (PING, INFO, etc.) are executed on the first listed
+// server and are documented as "Cannot be sharded".
 package redis
 
 import (
@@ -41,7 +50,8 @@ var (
 	// ErrNoServers is returned when no servers are configured or available.
 	ErrNoServers = errors.New("redis: no servers configured or available")
 
-	// ErrServerError means that a server error occurred.
+	// ErrServerError is returned when the server reply cannot be parsed
+	// or has an unexpected type for the command being executed.
 	ErrServerError = errors.New("redis: server error")
 
 	// ErrTimedOut is returned when a Read or Write operation times out
@@ -51,15 +61,12 @@ var (
 // DefaultTimeout is the default socket read/write timeout.
 const DefaultTimeout = time.Second
 
-// resumableError returns true if err is only a protocol-level cache error.
-// This is used to determine whether or not a server connection should
-// be re-used or not. If an error occurs, by default we don't reuse the
-// connection, unless it was just a cache error.
+// resumableError reports whether err is a protocol-level server error
+// that does not require discarding the connection. Callers close the
+// connection for any other error (timeout, broken pipe, etc.) since
+// the stream may be out of sync with the server.
 func resumableError(err error) bool {
-	if err == ErrServerError {
-		return true
-	}
-	return false // time outs, broken pipes, etc
+	return err == ErrServerError
 }
 
 // New returns a redis client using the provided server(s) with equal weight.
@@ -72,8 +79,9 @@ func resumableError(err error) bool {
 //	rc := redis.New("ip:port db=N passwd=foobared")
 //	rc := redis.New("/tmp/redis.sock db=N passwd=foobared")
 //
-// New panics if the configured servers point to names that cannot
-// be resolved to an address, or unix socket path.
+// New panics if any server address or unix socket path fails to
+// resolve. Use NewClient to handle configuration errors at runtime
+// instead of panicking.
 func New(server ...string) *Client {
 	rc, err := NewClient(server...)
 	if err != nil {
@@ -179,9 +187,8 @@ func (c *Client) netTimeout() time.Duration {
 	return DefaultTimeout
 }
 
-// ConnectTimeoutError is the error type used when it takes
-// too long to connect to the desired host. This level of
-// detail can generally be ignored.
+// ConnectTimeoutError is returned from the dial path when a
+// connection attempt exceeds the configured net timeout.
 type ConnectTimeoutError struct {
 	Addr net.Addr
 }
@@ -275,7 +282,6 @@ func (c *Client) cleanupFreeConn(nc net.Conn) {
 	nc.Close()
 	for n, conn := range freelist {
 		if nc == conn.nc {
-			// TODO: optimize
 			copy(freelist[n:], freelist[n+1:])
 			freelist[len(freelist)-1] = nil
 			freelist = freelist[:len(freelist)-1]
@@ -374,7 +380,6 @@ func (c *Client) execWithAddrTimeout(urp bool, srv ServerInfo, timeout int, a ..
 // It uses the old protocol and can be used by simple commands, such as DB.
 // Redis protocol: http://redis.io/topics/protocol.
 func (c *Client) execute(rw *bufio.ReadWriter, a ...interface{}) (interface{}, error) {
-	//fmt.Printf("\nSending: %#v\n", a)
 	// old redis protocol.
 	_, err := fmt.Fprintf(rw, strings.Join(viface2vstr(a), " ")+"\r\n")
 	if err != nil {
@@ -391,7 +396,6 @@ func (c *Client) execute(rw *bufio.ReadWriter, a ...interface{}) (interface{}, e
 // such as SET.
 // Redis protocol: http://redis.io/topics/protocol.
 func (c *Client) executeURP(rw *bufio.ReadWriter, a ...interface{}) (interface{}, error) {
-	//log.Printf("\nSending: %#v\n", a)
 	// unified request protocol
 	s := viface2vstr(a)
 	_, err := fmt.Fprintf(rw, "*%d\r\n", len(a))
@@ -419,7 +423,6 @@ func (c *Client) parseResponse(r *bufio.Reader) (interface{}, error) {
 		}
 		return nil, err
 	}
-	//log.Printf("line=%#v %x\n", line, &r)
 	if len(line) < 1 {
 		return nil, ErrServerError
 	}
@@ -461,7 +464,6 @@ func (c *Client) parseResponse(r *bufio.Reader) (interface{}, error) {
 		}
 		return string(b[:valueLen]), nil // strip off trailing crlf
 	case '*': // Multi-bulk reply
-		//fmt.Printf("multibulk line=%#v\n", line)
 		nitems, err := strconv.Atoi(line)
 		if err != nil {
 			return nil, err
@@ -476,7 +478,6 @@ func (c *Client) parseResponse(r *bufio.Reader) (interface{}, error) {
 				return nil, err
 			}
 		}
-		//log.Printf("multibulk=%#v\n", resp)
 		return resp, nil
 	default:
 		return nil, ErrServerError
