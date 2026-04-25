@@ -1,6 +1,16 @@
 go-redis
 ========
 
+## Deprecated
+
+This library is no longer maintained. Use the official Redis client
+for Go instead: https://github.com/redis/go-redis.
+
+The repository is archived and left in place for historical reference.
+
+
+## About
+
 go-redis is a [Redis](http://redis.io) client library for the
 [Go programming language](http://golang.org). It's built on the skeleton of
 [gomemcache](http://github.com/bradfitz/gomemcache).
