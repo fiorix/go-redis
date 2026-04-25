@@ -132,7 +132,7 @@ func TestLLen(t *testing.T) {
 	if v, err := rc.LLen("list1"); err != nil {
 		t.Fatal(err)
 	} else if v != 3 {
-		t.Fatalf(errUnexpected, "v="+string(v))
+		t.Fatalf(errUnexpected, "v="+strconv.Itoa(v))
 	}
 }
 
@@ -148,7 +148,7 @@ func TestLTrim(t *testing.T) {
 	if v, err := rc.LLen("list1"); err != nil {
 		t.Fatal(err)
 	} else if v != 2 {
-		t.Fatalf(errUnexpected, "len list1 ="+string(v))
+		t.Fatalf(errUnexpected, "len list1 ="+strconv.Itoa(v))
 	}
 }
 
@@ -312,16 +312,26 @@ func TestConfigGet(t *testing.T) {
 	}
 }
 
-// TestConfigSet sets redis dir to /tmp, and back to the default.
+// TestConfigSet flips maxmemory-policy and restores the original value.
+// Avoids "dir", which redis 7+ marks as a protected config by default.
 func TestConfigSet(t *testing.T) {
-	items, err := rc.ConfigGet("dir")
+	const key = "maxmemory-policy"
+	items, err := rc.ConfigGet(key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = rc.ConfigSet("dir", "/tmp"); err != nil {
+	orig, ok := items[key]
+	if !ok {
+		t.Fatalf("CONFIG GET %s returned no value: %#v", key, items)
+	}
+	next := "allkeys-lru"
+	if orig == next {
+		next = "noeviction"
+	}
+	if err := rc.ConfigSet(key, next); err != nil {
 		t.Fatal(err)
 	}
-	if err := rc.ConfigSet("dir", items["dir"]); err != nil {
+	if err := rc.ConfigSet(key, orig); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -407,7 +417,7 @@ func TestIncrBy(t *testing.T) {
 func TestDel(t *testing.T) {
 	keys := make([]string, 1024)
 	for n := 0; n < cap(keys); n++ {
-		k := randomString(4) + string(n)
+		k := randomString(4) + strconv.Itoa(n)
 		v := randomString(32)
 		if err := rc.Set(k, v); err != nil {
 			t.Fatal(err)
@@ -424,18 +434,35 @@ func TestDel(t *testing.T) {
 
 // TODO: TestDiscard
 
-// TestDump reproduces the example from http://redis.io/commands/dump.
+// TestDump exercises DUMP and RESTORE as a roundtrip.
+// Avoids asserting the exact serialized payload, whose RDB version
+// byte has been bumped multiple times since this test was written.
 func TestDump(t *testing.T) {
 	defer rc.Del("mykey")
-	rc.Set("mykey", "10")
-	if v, err := rc.Dump("mykey"); err != nil {
+	if err := rc.Set("mykey", "10"); err != nil {
 		t.Fatal(err)
-	} else if v != "\u0000\xC0\n\u0006\u0000\xF8r?\xC5\xFB\xFB_(" {
+	}
+	blob, err := rc.Dump("mykey")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blob == "" {
+		t.Fatalf(errUnexpected, blob)
+	}
+	if _, err := rc.Del("mykey"); err != nil {
+		t.Fatal(err)
+	}
+	if err := rc.Restore("mykey", 0, blob); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := rc.Get("mykey"); err != nil {
+		t.Fatal(err)
+	} else if v != "10" {
 		t.Fatalf(errUnexpected, v)
 	}
 }
 
-// TestDump reproduces the example from http://redis.io/commands/echo.
+// TestEcho reproduces the example from http://redis.io/commands/echo.
 func TestEcho(t *testing.T) {
 	m := "Hello World!"
 	if v, err := rc.Echo(m); err != nil {
@@ -537,7 +564,7 @@ func TestExpireAt(t *testing.T) {
 	if ok, err := rc.Exists("mykey"); err != nil {
 		t.Fatal(err)
 	} else if ok {
-		t.Fatal(errUnexpected, ok)
+		t.Fatalf(errUnexpected, ok)
 	}
 }
 
@@ -601,7 +628,7 @@ func TestGetRange(t *testing.T) {
 	if v, err := rc.GetRange("mykey", 10, 100); err != nil {
 		t.Fatal(err)
 	} else if v != "string" {
-		t.Fatal(errUnexpected, v)
+		t.Fatalf(errUnexpected, v)
 	}
 }
 

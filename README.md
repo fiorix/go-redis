@@ -30,7 +30,7 @@ are welcome.
 We've written other Redis client libraries before, also very stable and used
 in large deployments by major companies.
 
-[![Build Status](https://secure.travis-ci.org/fiorix/go-redis.png)](http://travis-ci.org/fiorix/go-redis)
+[![CI](https://github.com/fiorix/go-redis/actions/workflows/ci.yml/badge.svg)](https://github.com/fiorix/go-redis/actions/workflows/ci.yml)
 
 
 ## Installing

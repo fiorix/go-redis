@@ -346,6 +346,13 @@ func (c *Client) Dump(key string) (string, error) {
 	return iface2str(v)
 }
 
+// Restore implements http://redis.io/commands/restore.
+// ttl is in milliseconds; 0 means no expiry.
+func (c *Client) Restore(key string, ttl int, value string) error {
+	_, err := c.execWithKey(true, "RESTORE", key, ttl, value)
+	return err
+}
+
 // Echo implements http://redis.io/commands/echo.
 func (c *Client) Echo(message string) (string, error) {
 	v, err := c.execWithKey(true, "ECHO", message)
